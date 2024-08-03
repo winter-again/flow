@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,9 +24,6 @@ var switchCmd = &cobra.Command{
 	Long:  `Pick an existing tmux session to switch to or create a new one from common directories`,
 	Run:   switchSession,
 }
-
-// TODO: maybe make this support switching sessions, windows, and panes
-// dep on flag specificity?
 
 // switch tmux session based on selection
 func switchSession(cmd *cobra.Command, args []string) {
@@ -53,7 +51,10 @@ func switchSession(cmd *cobra.Command, args []string) {
 	// 	sessionName = selection
 	// }
 
-	session := selSession(sessions)
+	session, err := selSession(sessions)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// if tmux.SessionExists(sessionName) {
 	// 	session, err := tmux.GetSession(sessionName)
@@ -90,10 +91,8 @@ func switchSession(cmd *cobra.Command, args []string) {
 	}
 }
 
-// TODO: some of these funcs should return err?
-
 // use fzf-tmux to allow picking/creating session
-func selSession(sessions []*tmux.Session) *tmux.Session {
+func selSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	// TODO: make some of these consts or vars outside of func?
 	// TODO: should we do all the external program checks at once?
 	// TODO: should we even rely on fd? note that fd is used in the reload fzf call, so may
@@ -101,7 +100,7 @@ func selSession(sessions []*tmux.Session) *tmux.Session {
 	// could at least offer ability to pick find or fd to reduce deps
 	_, err := exec.LookPath("fd")
 	if err != nil {
-		log.Fatal(err)
+		return &tmux.Session{}, errors.New("Couldn't find fd in the PATH")
 	}
 	// TODO: should make the paths that get fed into fd configurable
 	// what about the fd command in general?
@@ -154,13 +153,13 @@ func selSession(sessions []*tmux.Session) *tmux.Session {
 	// NOTE: fzf-tmux is wrapper script from fzf
 	fzfTmux, err := exec.LookPath("fzf-tmux")
 	if err != nil {
-		log.Fatal(err)
+		return &tmux.Session{}, errors.New("Couldn't find fzf-tmux in the PATH")
 	}
 	fzfTmuxCmd := exec.Command(fzfTmux, args...)
 
 	stdin, err := fzfTmuxCmd.StdinPipe()
 	if err != nil {
-		log.Fatal(err)
+		return &tmux.Session{}, errors.New("Problem with stdin pipe")
 	}
 
 	// NOTE: construct list of session names to pass to fzf-tmux
@@ -177,7 +176,7 @@ func selSession(sessions []*tmux.Session) *tmux.Session {
 
 	out, err := fzfTmuxCmd.CombinedOutput()
 	if err != nil {
-		log.Fatal(err)
+		return &tmux.Session{}, errors.New("Problem running fzf-tmux command")
 	}
 	// return strings.TrimSpace(string(out))
 
@@ -186,11 +185,11 @@ func selSession(sessions []*tmux.Session) *tmux.Session {
 		return &tmux.Session{
 			Name: filepath.Base(selection),
 			Path: selection,
-		}
+		}, nil
 	}
 	return &tmux.Session{
 		Name: selection,
-	}
+	}, nil
 }
 
 // call to tmux to switch session based on name

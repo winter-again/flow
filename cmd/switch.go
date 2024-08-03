@@ -38,37 +38,10 @@ func switchSession(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	// TODO: revert to handling this inside of selSession()?
-	// could have it return a *Session but does that simplify anything?
-	// would still have to check whether that session exists
-	// selection := selSession(sessions)
-	// var sessionName, sessionPath string
-	// if tmux.IsPath(selection) {
-	// 	// TODO: using filepath.Base() like this is fine?
-	// 	sessionName = filepath.Base(selection)
-	// 	sessionPath = selection
-	// } else {
-	// 	sessionName = selection
-	// }
-
 	session, err := selSession(sessions)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// if tmux.SessionExists(sessionName) {
-	// 	session, err := tmux.GetSession(sessionName)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	switchSess(session)
-	// } else {
-	// 	newSession, err := tmux.CreateSession(sessionName, sessionPath)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	switchSess(newSession)
-	// }
 
 	if session.Exists() {
 		err := switchSess(session)
@@ -91,7 +64,8 @@ func switchSession(cmd *cobra.Command, args []string) {
 	}
 }
 
-// use fzf-tmux to allow picking/creating session
+// use fzf-tmux to pick a session that either exists for switching
+// or should be created
 func selSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	// TODO: make some of these consts or vars outside of func?
 	// TODO: should we do all the external program checks at once?
@@ -162,7 +136,6 @@ func selSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		return &tmux.Session{}, errors.New("Problem with stdin pipe")
 	}
 
-	// NOTE: construct list of session names to pass to fzf-tmux
 	var sessionList []string
 	for _, session := range sessions {
 		sessionList = append(sessionList, session.Name)
@@ -178,7 +151,6 @@ func selSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	if err != nil {
 		return &tmux.Session{}, errors.New("Problem running fzf-tmux command")
 	}
-	// return strings.TrimSpace(string(out))
 
 	selection := strings.TrimSpace(string(out))
 	if tmux.IsPath(selection) {

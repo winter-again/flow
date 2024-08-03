@@ -89,7 +89,6 @@ func GetSession(sessionName string) (*Session, error) {
 // Get all tmux sessions
 func GetSessions() ([]*Session, error) {
 	// TODO: have to cover non-default sockets?
-	// TODO: return err too?
 	args := []string{
 		"list-sessions",
 		"-F",

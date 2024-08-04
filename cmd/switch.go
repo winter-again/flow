@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/winter-again/flow/internal/tmux"
 )
 
@@ -76,14 +77,11 @@ func selSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	if err != nil {
 		return &tmux.Session{}, errors.New("Couldn't find fd in the PATH")
 	}
-	// TODO: should make the paths that get fed into fd configurable
-	// what about the fd command in general?
-	fdDirs := []string{
-		"~/Documents/Bansal-lab",
-		"~/Documents/code",
-	}
+
+	fdDirs := viper.GetStringSlice("fd.dirs")
 	fdDirsStr := strings.Join(fdDirs, " ")
 	fdCmd := fmt.Sprintf("fd . %s --min-depth 1 --max-depth 1 --type d", fdDirsStr)
+
 	// TODO: make at least appearance configurable
 	// can use append for some of that; otherwise user's fzf config is used?
 	// TODO: do we need to be more careful with the commands being set to the keybinds?

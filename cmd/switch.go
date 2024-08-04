@@ -164,6 +164,9 @@ func selSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	}, nil
 }
 
+// TODO: this technically checks session ID before name
+// prefix name with "=" to force an exact match
+
 // call to tmux to switch session based on name
 func switchSess(session *tmux.Session) error {
 	args := []string{

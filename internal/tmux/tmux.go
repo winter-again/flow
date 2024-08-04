@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,12 +21,113 @@ func InsideTmux() bool {
 	return true
 }
 
+type Server struct {
+	SocketName string // socket name
+	SocketPath string // socket path
+}
+
+// create Server struct based on socket name or path or just the default
+// guarantees that both socket name and path are set
+func NewServer(socketName string, socketPath string) *Server {
+	// NOTE: if socket path is given, then socket name should be ignored
+	// b/c socket path already specifies the name
+	tmpDir := getTmuxTmpDir()
+	defaultSocketName := "default"
+	defaultSocketPath := fmt.Sprintf("%s/tmux-1000/default", tmpDir)
+
+	if socketPath != defaultSocketPath {
+		return &Server{
+			SocketName: filepath.Base(socketPath),
+			SocketPath: socketPath,
+		}
+	} else if socketName != defaultSocketName {
+		return &Server{
+			SocketName: socketName,
+			SocketPath: fmt.Sprintf("/tmp/tmux-1000/%s", socketName),
+		}
+	} else {
+		return &Server{
+			SocketName: defaultSocketName,
+			SocketPath: defaultSocketPath,
+		}
+	}
+}
+
+// create server + default session by either socket name or socket path
+func (server *Server) Create() (string, string, error) {
+	if InsideTmux() {
+		log.Fatal("Shouldn't nest tmux sessions")
+	}
+
+	tmpDir := getTmuxTmpDir()
+	defaultSocketPath := fmt.Sprintf("%s/tmux-1000/default", tmpDir)
+
+	log.Printf("default socket path: %s", defaultSocketPath)
+	log.Printf("given socket path: %s", server.SocketPath)
+
+	var args []string
+	// NOTE: this creates server with single default session;
+	// can use "server" to create bare server
+	if server.SocketPath != defaultSocketPath {
+		args = []string{
+			"-S",
+			server.SocketPath,
+			"new-session",
+			"-d",
+		}
+	} else {
+		args = []string{
+			"-L",
+			server.SocketName,
+			"new-session",
+			"-d",
+		}
+	}
+
+	stdout, stderr, err := Cmd(args)
+	if err != nil {
+		return stdout, stderr, err
+	}
+	return stdout, stderr, nil
+}
+
+// attach to server designated by its socket name
+// allows tmux to figure out which session
+func (server *Server) Attach() (string, string, error) {
+	if InsideTmux() {
+		log.Fatal("Shouldn't nest tmux sessions")
+	}
+
+	// NOTE: attach-session will try to create server, but this will fail
+	// if no sessions specified in the config file
+	args := []string{
+		"-L",
+		server.SocketName,
+		"attach-session",
+	}
+	stdout, stderr, err := Cmd(args)
+	if err != nil {
+		return stdout, stderr, err
+	}
+	return stdout, stderr, nil
+}
+
+// retrieve the TMUXTMPDIR environment var
+func getTmuxTmpDir() string {
+	if tmpDir := os.Getenv("TMUXTMPDIR"); tmpDir != "" {
+		return tmpDir
+	}
+	return "/tmp"
+}
+
 type Session struct {
 	Id      string // unique session ID
 	Name    string // name of session
 	Path    string // working directory of session
 	Windows int    // number of windows in session
 }
+
+// TODO: some of these should really be methods on server?
 
 // check if session exists based on its name
 func (session *Session) Exists() bool {
@@ -86,6 +188,9 @@ func GetSession(sessionName string) (*Session, error) {
 	return &Session{}, fmt.Errorf("Session %q doesn't exist", sessionName)
 }
 
+// TODO: should this be a Server method?
+// I think session IDs and names are only unique to server
+
 // Get all tmux sessions
 func GetSessions() ([]*Session, error) {
 	// TODO: have to cover non-default sockets?
@@ -111,6 +216,9 @@ func Cmd(args []string) (string, string, error) {
 	cmd := exec.Command(tmux, args...)
 
 	var stdout, stderr bytes.Buffer
+	// NOTE: setting stdin makes it so that creating and attach to server works
+	// but does it make sense
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 

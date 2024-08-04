@@ -33,6 +33,7 @@ func init() {
 }
 
 func initConfig() {
+	// TODO: check how this is triggered
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
@@ -42,11 +43,24 @@ func initConfig() {
 		viper.SetConfigName("flow")
 		viper.SetConfigType("toml")
 		viper.AddConfigPath(fmt.Sprintf("%s/.config/flow/", home))
+
+		viper.SetDefault("fd.args", []string{"--min-depth", "1", "--max-depth", "1"})
+
+		viper.SetDefault("fzf-tmux.width", "80%")
+		viper.SetDefault("fzf-tmux.length", "60%")
+		viper.SetDefault("fzf-tmux.border", "rounded")
+		viper.SetDefault("fzf-tmux.preview_dir_cmd", []string{"ls"})
+		viper.SetDefault("fzf-tmux.preview_pos", "right")
+		viper.SetDefault("fzf-tmux.preview_size", "60%")
+		viper.SetDefault("fzf-tmux.preview_border", "rounded")
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file: %v", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			home, _ := os.UserHomeDir()
+			log.Fatalf("Config file not found at %s", fmt.Sprintf("%s/.config/flow/flow.toml", home))
+		} else {
+			log.Fatal("Error reading config file %w", err)
+		}
 	}
-
-	fmt.Printf("Got fd dirs: %s\n", viper.GetStringSlice("fd.dirs"))
 }

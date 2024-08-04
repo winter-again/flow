@@ -79,41 +79,53 @@ func selSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	}
 
 	fdDirs := viper.GetStringSlice("fd.dirs")
+	fdArgs := viper.GetStringSlice("fd.args")
 	fdDirsStr := strings.Join(fdDirs, " ")
-	fdCmd := fmt.Sprintf("fd . %s --min-depth 1 --max-depth 1 --type d", fdDirsStr)
+	fdArgsStr := strings.Join(fdArgs, " ")
+	fdCmd := fmt.Sprintf("fd . %s %s --type d", fdDirsStr, fdArgsStr)
+
+	fzfTmuxWidth := viper.GetString("fzf-tmux.width")
+	fzfTmuxLength := viper.GetString("fzf-tmux.length")
+	fzfTmuxBorder := viper.GetString("fzf-tmux.border")
+
+	fzfTmuxPrevCmd := viper.GetStringSlice("fzf-tmux.preview_dir_cmd")
+	fzfTmuxPrevCmdStr := strings.Join(fzfTmuxPrevCmd, " ")
+	fzfTmuxPrevPos := viper.GetString("fzf-tmux.preview_pos")
+	fzfTmuxPrevSize := viper.GetString("fzf-tmux.preview_size")
+	fzfTmuxPrevBorder := viper.GetString("fzf-tmux.preview_border")
 
 	// TODO: make at least appearance configurable
 	// can use append for some of that; otherwise user's fzf config is used?
 	// TODO: do we need to be more careful with the commands being set to the keybinds?
 	// i.e., keeping stuff in line with expected behavior of Go side of things
 	args := []string{
+		"--ansi",
+
 		"--layout",
-		"reverse",
-		"--no-multi",
-		"-p",
-		"80%,60%",
+		"reverse",    // display from top; overrides user fzf config
+		"--no-multi", // disable multi-select
+		"-p",         // popup window size, req. tmux 3.2+
+		fmt.Sprintf("%s,%s", fzfTmuxWidth, fzfTmuxLength),
 		"--prompt",
 		" Sessions: ",
 		"--header",
 		"\033[1;34m<tab>\033[m: common dirs / \033[1;34m<shift-tab>\033[m: sessions / \033[1;34m<ctrl-k>\033[m: kill session",
+		"--preview",
+		"active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id",
 		"--bind",
-		fmt.Sprintf("tab:change-preview-window(hidden)+change-prompt( Common dirs: )+reload(%s)", fdCmd),
+		fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})", fdCmd, fzfTmuxPrevCmdStr),
 		"--bind",
-		"shift-tab:preview(~/.local/bin/tmux-switcher-preview.sh {})+change-prompt( Sessions)+reload(tmux list-sessions -F '#{session_name}')",
+		"shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt( Sessions)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)",
+
 		"--bind",
 		"ctrl-k:execute(tmux kill-session -t {})+reload(tmux list-sessions -F '#{session_name}')",
-		// TODO: should --preview call an actual command of this proj instead?
-		"--preview",
-		"active_pane_id=$(tmux display-message -t {} -p '#{pane_id}') && tmux capture-pane -ep -t $active_pane_id",
-		"--preview-window",
-		"right:65%",
-		"--preview-window",
-		"border-left",
 		"--preview-label",
 		"Currently active pane",
+		"--preview-window",
+		fmt.Sprintf("%s,%s,border-%s", fzfTmuxPrevPos, fzfTmuxPrevSize, fzfTmuxPrevBorder),
 		"--border",
-		"rounded",
-		"--no-separator",
+		fmt.Sprintf("%s", fzfTmuxBorder),
+		// "--no-separator",
 		// --color=fg:#cacaca,bg:-1,hl:underline:#8a98ac \
 		// --color=fg+:#f0f0f0,bg+:#262626,hl+:underline:#8f8aac \
 		// --color=info:#c6a679,prompt:#8f8aac,pointer:#f0f0f0 \

@@ -21,11 +21,13 @@ var (
 	}
 )
 
+// TODO: how do these affect the control flow?
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	os.Exit(0)
 }
 
 func init() {
@@ -33,16 +35,21 @@ func init() {
 }
 
 func initConfig() {
-	// TODO: check how this is triggered
+	// TODO: check how this is triggered and what cfgFile represents
+	// runtime-loaded config?
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		// home, err := os.UserHomeDir()
+		// cobra.CheckErr(err)
 
 		viper.SetConfigName("flow")
 		viper.SetConfigType("toml")
-		viper.AddConfigPath(fmt.Sprintf("%s/.config/flow/", home))
+
+		// TODO: is there a better way of specifying this?
+		// can we use $XDG_CONFIG_HOME?
+		// viper.AddConfigPath(fmt.Sprintf("%s/.config/flow/", home))
+		viper.AddConfigPath("$HOME/.config/flow")
 
 		viper.SetDefault("fd.args", []string{"--min-depth", "1", "--max-depth", "1"})
 

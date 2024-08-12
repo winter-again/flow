@@ -169,6 +169,9 @@ func SessionExists(sessionName string) bool {
 	return true
 }
 
+// TODO: should this be a Server method?
+// I think session IDs and names are only unique to server
+
 // TODO: is there any redundancy with Exists()?
 // this also seems to be addressing when session doesn't exist
 // maybe this should actually use the Exists() to check? Seems better than doing

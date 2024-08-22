@@ -193,6 +193,8 @@ func GetSession(sessionName string) (*Session, error) {
 
 // TODO: should this be a Server method?
 // I think session IDs and names are only unique to server
+// TODO: I think this always returns same order
+// should we have ability to manipulate order or customize?
 
 // Get all tmux sessions
 func GetSessions() ([]*Session, error) {

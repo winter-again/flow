@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 // check if $TMUX environment var is set, meaning running inside tmux
@@ -80,6 +82,8 @@ func (server *Server) Create() (string, string, error) {
 			"-L",
 			server.SocketName,
 			"new-session",
+			"-s",
+			viper.GetString("flow.init_session_name"),
 			"-d",
 		}
 	}

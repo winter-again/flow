@@ -53,6 +53,8 @@ func initConfig() {
 
 		viper.SetDefault("fd.args", []string{"--min-depth", "1", "--max-depth", "1"})
 
+		viper.SetDefault("flow.init_session_name", "0")
+
 		viper.SetDefault("fzf-tmux.width", "80%")
 		viper.SetDefault("fzf-tmux.length", "60%")
 		viper.SetDefault("fzf-tmux.border", "rounded")

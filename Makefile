@@ -1,12 +1,32 @@
-BIN="bin"
-BINARY_NAME=flow
+bin_path = ./bin
+bin_name = flow
 
+.PHONY: try
+try:
+	go test -test.run=TestMain -v ./...
+
+.PHONY: build
 build:
-	go build -o ./${BIN}/${BINARY_NAME}
+	go build -o=${bin_path}/${bin_name} ${main_pkg_path}
 
+.PHONY: run
 run: build
-	./${BIN}/${BINARY_NAME}
+	${bin_path}/${bin_name}
 
+.PHONY: clean
 clean:
 	go clean
 	rm ./${BIN}/${BINARY_NAME}
+
+.PHONY: tidy
+tidy:
+	go mod tidy -v
+
+.PHONY: vet
+vet:
+	go vet
+
+.PHONY: test
+test:
+	# go test -v ./...
+	go test -skip TestMain -v ./...

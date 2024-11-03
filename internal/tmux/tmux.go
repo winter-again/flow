@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const tmuxFormatSep string = ";"
+
 // Checks if $TMUX environment var is set, meaning running inside tmux
 func InsideTmux() bool {
 	if os.Getenv("TMUX") == "" {
@@ -136,6 +138,7 @@ func (server *Server) Attach() (string, string, error) {
 	return stdout, stderr, nil
 }
 
+// Returns default tmux socket name and path
 func getDefaultSocket() (string, string) {
 	defaultSocketName := "default"
 	sockDir := getSocketDir()
@@ -169,30 +172,70 @@ type Session struct {
 	Windows int    // number of windows in session
 }
 
-// TODO: some of these should really be methods on server?
+// todo: some/all of these should really be methods on server?
+// therefore servers always explicitly linked to a server
+// and covers cases where custom server spec used
+// I think session IDs and names are always unique to server (i.e., can't have dup IDs or names)
 
-// check if session exists based on its name
-func (session *Session) Exists() bool {
-	// TODO: should we do this edge-case here?
-	if session.Name == "" {
-		return false
-	}
+// TODO: is there any redundancy with SessionExists()?
+// this also seems to be addressing when session doesn't exist
 
-	// NOTE: `has-session` will either report error and exit with 1 or exit with 0
-	args := []string{
-		"has-session",
-		"-t",
-		session.Name,
-	}
-	_, _, err := Cmd(args)
+// Gets tmux session by name
+func (server *Server) GetSession(sessionName string) (*Session, error) {
+	// TODO: can we guarantee that names are unique?
+	sessions, err := server.GetSessions()
 	if err != nil {
-		return false
+		return &Session{}, err
 	}
-	return true
+
+	for _, session := range sessions {
+		if session.Name == sessionName {
+			return session, nil
+		}
+	}
+	return &Session{}, fmt.Errorf("Session %q doesn't exist", sessionName)
 }
 
-// check if a session with given name exists
-func SessionExists(sessionName string) bool {
+// Gets all tmux sessions
+func (server *Server) GetSessions() ([]*Session, error) {
+	args := []string{
+		"-S",
+		server.SocketPath,
+		"list-sessions",
+		"-F",
+		"#{session_id};#{session_name};#{session_path};#{session_windows}",
+	}
+	// todo: order is consistent?
+	sessions, _, err := Cmd(args)
+	if err != nil {
+		return []*Session{}, errors.New("Couldn't retrieve sessions")
+	}
+	return parseSessions(sessions), nil
+}
+
+// Parses returned tmux session data into Session struct
+func parseSessions(sessionsOutput string) []*Session {
+	// todo: do we need to consider any errors when splitting? shouldn't it always
+	// return at least one session?
+	sessions := strings.Split(strings.TrimSpace(sessionsOutput), "\n")
+
+	sessionsParsed := make([]*Session, len(sessions))
+	for i, s := range sessions {
+		// TODO: remove "$" from session ID?
+		fields := strings.Split(s, tmuxFormatSep)
+		session := &Session{
+			Id:      fields[0],
+			Name:    fields[1],
+			Path:    fields[2],
+			Windows: stringToInt(fields[3]),
+		}
+		sessionsParsed[i] = session
+	}
+	return sessionsParsed
+}
+
+// Checks if session exists based on its name
+func (server *Server) SessionExists(sessionName string) bool {
 	// TODO: should we do this edge-case here?
 	if sessionName == "" {
 		return false
@@ -200,6 +243,8 @@ func SessionExists(sessionName string) bool {
 
 	// NOTE: `has-session` will either report error and exit with 1 or exit with 0
 	args := []string{
+		"-S",
+		server.SocketPath,
 		"has-session",
 		"-t",
 		sessionName,
@@ -211,46 +256,51 @@ func SessionExists(sessionName string) bool {
 	return true
 }
 
-// TODO: should this be a Server method?
-// I think session IDs and names are only unique to server
+// todo: arg should be a Session/*Session?
+func (server *Server) CreateSession(sessionName string, sessionPath string) (*Session, error) {
+	if sessionName == "" || strings.Contains(sessionName, ".") || strings.Contains(sessionName, ":") {
+		return &Session{}, fmt.Errorf("Session names can't be empty and can't contain colons or periods: %s", sessionName)
+	}
 
-// TODO: is there any redundancy with Exists()?
-// this also seems to be addressing when session doesn't exist
-// maybe this should actually use the Exists() to check? Seems better than doing
-// this iter?
-// Get tmux session by name
-func GetSession(sessionName string) (*Session, error) {
-	// TODO: can we guarantee that names are unique?
-	sessions, err := GetSessions()
+	args := []string{
+		"-S",
+		server.SocketPath,
+		"new-session",
+		"-d",
+		"-s",
+		sessionName,
+		"-c",
+		sessionPath,
+	}
+	_, _, err := Cmd(args)
 	if err != nil {
-		return &Session{}, errors.New("Couldn't get session")
+		return &Session{}, err
 	}
-	for _, session := range sessions {
-		if session.Name == sessionName {
-			return session, nil
-		}
+
+	// todo: retrieve instead of returning Session created here?
+	session, err := server.GetSession(sessionName)
+	if err != nil {
+		return &Session{}, err
 	}
-	return &Session{}, fmt.Errorf("Session %q doesn't exist", sessionName)
+	return session, nil
 }
 
-// TODO: should this be a Server method?
-// I think session IDs and names are only unique to server
-// TODO: I think this always returns same order
-// should we have ability to manipulate order or customize?
-
-// Get all tmux sessions
-func GetSessions() ([]*Session, error) {
-	// TODO: have to cover non-default sockets?
-	args := []string{
-		"list-sessions",
-		"-F",
-		"#{session_id};#{session_name};#{session_path};#{session_windows}",
-	}
-	sessions, _, err := Cmd(args)
+// todo: just get rid of this because it's redundant
+// TODO: could this ever fail or receive some bad value?
+func stringToInt(s string) int {
+	i, err := strconv.Atoi(s)
 	if err != nil {
-		return []*Session{}, errors.New("Couldn't get sessions")
+		log.Fatal(err)
 	}
-	return parseSessions(sessions), nil
+	return i
+}
+
+func IsPath(session string) bool {
+	match, err := regexp.MatchString("^.*/(.*/)*$", session)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return match
 }
 
 // Runs tmux command with given args; returns stdout and stderr
@@ -272,71 +322,4 @@ func Cmd(args []string) (string, string, error) {
 	err = cmd.Run()
 	outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
 	return outStr, errStr, err
-}
-
-// parse string of session info
-func parseSessions(sessionStr string) []*Session {
-	// TODO: do we need to consider any errors when splitting? shouldn't it always
-	// return at least one session?
-	sessionsSplit := strings.Split(strings.TrimSpace(sessionStr), "\n")
-
-	sessionList := make([]*Session, 0, len(sessionsSplit))
-	for _, s := range sessionsSplit {
-		// TODO: should ";" be global const?
-		// TODO: remove "$" from session ID?
-		fields := strings.Split(s, ";")
-		session := &Session{
-			Id:      fields[0],
-			Name:    fields[1],
-			Path:    fields[2],
-			Windows: stringToInt(fields[3]),
-		}
-		sessionList = append(sessionList, session)
-	}
-	return sessionList
-}
-
-// TODO: could this ever fail or receive some bad value?
-func stringToInt(s string) int {
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return i
-}
-
-func IsPath(session string) bool {
-	match, err := regexp.MatchString("^.*/(.*/)*$", session)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return match
-}
-
-// create and return new tmux session with given name and path
-func CreateSession(sessionName string, sessionPath string) (*Session, error) {
-	if sessionName == "" || strings.Contains(sessionName, ".") || strings.Contains(sessionName, ":") {
-		return &Session{}, fmt.Errorf("Session names can't be empty and can't contain colons or periods: %s", sessionName)
-	}
-
-	args := []string{
-		"new-session",
-		"-d",
-		"-s",
-		sessionName,
-		"-c",
-		sessionPath,
-	}
-	_, _, err := Cmd(args)
-	if err != nil {
-		return &Session{}, err
-	}
-
-	// TODO: can we guarantee session names are unique so that we can guarantee
-	// retrieval by name?
-	session, err := GetSession(sessionName)
-	if err != nil {
-		return &Session{}, err
-	}
-	return session, nil
 }

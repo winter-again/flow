@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(attachCmd)
 
 	defaultSocketName, defaultSocketPath := tmux.GetDefaultSocket()
 	startCmd.Flags().StringP("name", "n", defaultSocketName, "tmux server socket name")
@@ -16,16 +16,14 @@ func init() {
 	startCmd.MarkFlagsMutuallyExclusive("name", "path")
 }
 
-// NOTE: only accept one of socket name or socket path
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start tmux server",
-	Long:  `Start a new tmux server with either a given socket name or path. Attach to default session.`,
-	Run:   startAttachServer,
+var attachCmd = &cobra.Command{
+	Use:   "attach",
+	Short: "Attach to tmux server",
+	Long:  `Attach to an existing tmux server. Will prefer the most recently used session`,
+	Run:   attachServer,
 }
 
-// Starts tmux server and attaches to session
-func startAttachServer(cmd *cobra.Command, args []string) {
+func attachServer(cmd *cobra.Command, args []string) {
 	// todo: if mutually exclusive, what does empty one return? ""?
 	socketName, _ := cmd.Flags().GetString("name")
 	socketPath, _ := cmd.Flags().GetString("path")
@@ -36,13 +34,7 @@ func startAttachServer(cmd *cobra.Command, args []string) {
 	server := tmux.NewServer(socketName, socketPath)
 	log.Printf("targeting server: %q\n", server)
 
-	_, _, err := server.Start()
-	if err != nil {
-		log.Printf("Problem creating server & session -> %s : %s\n", server.SocketName, server.SocketPath)
-		log.Fatal(err)
-	}
-
-	_, _, err = server.Attach()
+	_, _, err := server.Attach()
 	if err != nil {
 		log.Printf("Problem attaching to server %s : %s\n", server.SocketName, server.SocketPath)
 		log.Fatal(err)

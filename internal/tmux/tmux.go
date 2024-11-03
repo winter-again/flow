@@ -34,6 +34,8 @@ type Server struct {
 // Creates Server spec based on socket name or path or just the default.
 // This guarantees that both socket name and path are set
 func NewServer(socketName string, socketPath string) *Server {
+	// todo: when called from startSever(), only one of socketName or
+	// socketPath will be provided
 	defaultSocketName := "default"
 	sockDir := getSocketDir()
 	UID := getUID()
@@ -65,13 +67,13 @@ func NewServer(socketName string, socketPath string) *Server {
 
 // Starts a new tmux server with a single session
 // using either socket name or socket path
-func (server *Server) Create() (string, string, error) {
+func (server *Server) Start() (string, string, error) {
 	if InsideTmux() {
 		// todo: case of creating a diff server?
 		log.Fatal("Shouldn't nest tmux sessions")
 	}
 
-	_, defaultSocketPath := getDefaultSocket()
+	_, defaultSocketPath := GetDefaultSocket()
 
 	log.Printf("default socket path: %s\n", defaultSocketPath)
 	log.Printf("given socket path: %s\n", server.SocketPath)
@@ -127,8 +129,8 @@ func (server *Server) Attach() (string, string, error) {
 	// note: not specifying target session will pref the most recently used
 	// unattached session
 	args := []string{
-		"-L",
-		server.SocketName,
+		"-S",
+		server.SocketPath,
 		"attach-session",
 	}
 	stdout, stderr, err := Cmd(args)
@@ -139,7 +141,7 @@ func (server *Server) Attach() (string, string, error) {
 }
 
 // Returns default tmux socket name and path
-func getDefaultSocket() (string, string) {
+func GetDefaultSocket() (string, string) {
 	defaultSocketName := "default"
 	sockDir := getSocketDir()
 	UID := getUID()

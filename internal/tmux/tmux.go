@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -15,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// check if $TMUX environment var is set, meaning running inside tmux
+// Checks if $TMUX environment var is set, meaning running inside tmux
 func InsideTmux() bool {
 	if os.Getenv("TMUX") == "" {
 		return false
@@ -28,26 +29,31 @@ type Server struct {
 	SocketPath string // socket path
 }
 
-// create Server struct based on socket name or path or just the default
-// guarantees that both socket name and path are set
+// Creates Server spec based on socket name or path or just the default.
+// This guarantees that both socket name and path are set
 func NewServer(socketName string, socketPath string) *Server {
-	// NOTE: if socket path is given, then socket name should be ignored
-	// b/c socket path already specifies the name
-	tmpDir := getTmuxTmpDir()
 	defaultSocketName := "default"
-	defaultSocketPath := fmt.Sprintf("%s/tmux-1000/default", tmpDir)
+	sockDir := getSocketDir()
+	UID := getUID()
+	defaultSocketPath := fmt.Sprintf("%s/tmux-%s/%s", sockDir, UID, defaultSocketName)
 
+	// note: if socket path is not the default, then socket name should be ignored
+	// b/c socket path already specifies the name; this matches tmux behavior
+	// otherwise, if socket name is given, then the socket path must use that name
+	// but other parts of the path remain default
 	if socketPath != defaultSocketPath {
 		return &Server{
-			SocketName: filepath.Base(socketPath),
+			SocketName: filepath.Base(socketPath), // set name to whatever was given for socketPath
 			SocketPath: socketPath,
 		}
 	} else if socketName != defaultSocketName {
 		return &Server{
 			SocketName: socketName,
-			SocketPath: fmt.Sprintf("/tmp/tmux-1000/%s", socketName),
+			SocketPath: fmt.Sprintf("%s/tmux-%s/%s", sockDir, UID, socketName),
 		}
 	} else {
+		// todo: think about this case; how does it get reached? caller would have
+		// to explicitly specify default values for the args
 		return &Server{
 			SocketName: defaultSocketName,
 			SocketPath: defaultSocketPath,
@@ -55,36 +61,46 @@ func NewServer(socketName string, socketPath string) *Server {
 	}
 }
 
-// create server + default session by either socket name or socket path
+// Starts a new tmux server with a single session
+// using either socket name or socket path
 func (server *Server) Create() (string, string, error) {
 	if InsideTmux() {
+		// todo: case of creating a diff server?
 		log.Fatal("Shouldn't nest tmux sessions")
 	}
 
-	tmpDir := getTmuxTmpDir()
-	defaultSocketPath := fmt.Sprintf("%s/tmux-1000/default", tmpDir)
+	_, defaultSocketPath := getDefaultSocket()
 
-	log.Printf("default socket path: %s", defaultSocketPath)
-	log.Printf("given socket path: %s", server.SocketPath)
+	log.Printf("default socket path: %s\n", defaultSocketPath)
+	log.Printf("given socket path: %s\n", server.SocketPath)
 
+	// todo: should this check if this specific server already exists and not create session
+	// since we're really relying on `new-session` to do the server creation?
+	// use `tmux info`? abuse `tmux run-shell`?
+
+	// todo: consider need for -d (detached)
+	// -d: new session is attached to the current terminal *unless* -d is given
+	// I think this means immediate attachment of client to session instead of just
+	// creating the server+session in the background
 	var args []string
-	// NOTE: this creates server with single default session;
-	// can use "server" to create bare server
+	// note: this creates server with single default session
 	if server.SocketPath != defaultSocketPath {
 		args = []string{
-			"-S",
+			"-S", // socket path
 			server.SocketPath,
 			"new-session",
-			"-d",
+			"-d", // detached
+			"-s", // session name
+			viper.GetString("flow.init_session_name"),
 		}
 	} else {
 		args = []string{
-			"-L",
+			"-L", // socket name
 			server.SocketName,
 			"new-session",
-			"-s",
+			"-d", // detached
+			"-s", // session name
 			viper.GetString("flow.init_session_name"),
-			"-d",
 		}
 	}
 
@@ -95,15 +111,19 @@ func (server *Server) Create() (string, string, error) {
 	return stdout, stderr, nil
 }
 
-// attach to server designated by its socket name
-// allows tmux to figure out which session
+// Attaches to session in the given server.
+// Should prefer the most recently used unattached session
 func (server *Server) Attach() (string, string, error) {
 	if InsideTmux() {
 		log.Fatal("Shouldn't nest tmux sessions")
 	}
 
-	// NOTE: attach-session will try to create server, but this will fail
-	// if no sessions specified in the config file
+	// todo: should allow specific target session?
+
+	// note: attach-session will try to create server, but this will fail
+	// if no sessions specified in the tmux config file
+	// note: not specifying target session will pref the most recently used
+	// unattached session
 	args := []string{
 		"-L",
 		server.SocketName,
@@ -116,12 +136,30 @@ func (server *Server) Attach() (string, string, error) {
 	return stdout, stderr, nil
 }
 
-// retrieve the TMUXTMPDIR environment var
-func getTmuxTmpDir() string {
-	if tmpDir := os.Getenv("TMUXTMPDIR"); tmpDir != "" {
-		return tmpDir
+func getDefaultSocket() (string, string) {
+	defaultSocketName := "default"
+	sockDir := getSocketDir()
+	UID := getUID()
+	return defaultSocketName, fmt.Sprintf("%s/tmux-%s/%s", sockDir, UID, defaultSocketName)
+}
+
+// Gets the tmux server socket directory, first checking
+// if TMUX_TMPDIR environment var set. Otherwise, returns the
+// default socket directory
+func getSocketDir() string {
+	if sockDir := os.Getenv("TMUX_TMPDIR"); sockDir != "" {
+		return sockDir
 	}
 	return "/tmp"
+}
+
+// Gets the current UID
+func getUID() string {
+	currUser, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return currUser.Uid
 }
 
 type Session struct {
@@ -215,7 +253,7 @@ func GetSessions() ([]*Session, error) {
 	return parseSessions(sessions), nil
 }
 
-// Run tmux command with given args; return stdout and stderr
+// Runs tmux command with given args; returns stdout and stderr
 func Cmd(args []string) (string, string, error) {
 	tmux, err := exec.LookPath("tmux")
 	if err != nil {

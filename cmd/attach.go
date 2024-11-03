@@ -11,9 +11,9 @@ func init() {
 	rootCmd.AddCommand(attachCmd)
 
 	defaultSocketName, defaultSocketPath := tmux.GetDefaultSocket()
-	startCmd.Flags().StringP("name", "n", defaultSocketName, "tmux server socket name")
-	startCmd.Flags().StringP("path", "p", defaultSocketPath, "tmux server socket path")
-	startCmd.MarkFlagsMutuallyExclusive("name", "path")
+	attachCmd.Flags().StringP("name", "n", defaultSocketName, "tmux server socket name")
+	attachCmd.Flags().StringP("path", "p", defaultSocketPath, "tmux server socket path")
+	attachCmd.MarkFlagsMutuallyExclusive("name", "path")
 }
 
 var attachCmd = &cobra.Command{

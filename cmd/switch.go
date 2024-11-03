@@ -16,11 +16,12 @@ import (
 
 func init() {
 	rootCmd.AddCommand(switchCmd)
+	// todo: add socket flags?
 }
 
 var switchCmd = &cobra.Command{
 	Use:   "switch",
-	Short: "Switch tmux sessions",
+	Short: "Switch tmux sessions using a popup",
 	Long:  `Pick an existing tmux session to switch to or create a new one from common directories`,
 	RunE:  switchSession,
 }
@@ -28,14 +29,21 @@ var switchCmd = &cobra.Command{
 // TODO: figure out the error handling here
 // we want it to return nil (and thus exit code 0) if user cancels via esc or ctrl-c
 
-// switch tmux session based on selection
 func switchSession(cmd *cobra.Command, args []string) error {
-	// TODO: should we be able to run commands from outside tmux?
 	if !tmux.InsideTmux() {
 		log.Fatal("Not running inside tmux")
 	}
 
-	sessions, err := tmux.GetSessions()
+	// todo: this command should only work from within tmux and should use the current server only
+	// thus I think safe to assume that there exists at least one session (the currently attached session)
+
+	// todo: fix all err handling
+	server, err := tmux.GetCurrentServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sessions, err := server.GetSessions()
 	if err != nil {
 		// log.Fatal(err)
 		return nil
@@ -47,7 +55,7 @@ func switchSession(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if session.Exists() {
+	if server.SessionExists(session.Name) {
 		err := switchSess(session)
 		if err != nil {
 			// log.Fatal(err)
@@ -57,7 +65,7 @@ func switchSession(cmd *cobra.Command, args []string) error {
 		// NOTE: here session is from fd output and the parsed session name from the path
 		// was used to check if session exists; guaranteed to have both Name and Path
 		// TODO: is it confusing that use a *Session to create/return a new *Session?
-		newSession, err := tmux.CreateSession(session.Name, session.Path)
+		newSession, err := server.CreateSession(session.Name, session.Path)
 		if err != nil {
 			// TODO: need to handle?
 			// log.Fatal(err)

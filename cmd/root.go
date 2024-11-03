@@ -14,8 +14,8 @@ var (
 	cfgFile string
 	rootCmd = &cobra.Command{
 		Use:   "flow",
-		Short: "Short desc here",
-		Long:  `Long desc here`,
+		Short: "CLI for managing tmux sessions",
+		Long:  `A simple CLI wrapper for managing tmux sessions. Switch between sessions or create them on the fly from specified directories via a popup window`,
 		// use if bare app has action associated
 		// Run: func(cmd *cobra.Command, args []string) {},
 	}

@@ -16,7 +16,7 @@ run: build
 .PHONY: clean
 clean:
 	go clean
-	rm ./${BIN}/${BINARY_NAME}
+	rm ${bin_path}/${bin_name}
 
 .PHONY: tidy
 tidy:

@@ -65,6 +65,25 @@ func NewServer(socketName string, socketPath string) *Server {
 	}
 }
 
+// Retrieves the server for the current session
+func GetCurrentServer() (*Server, error) {
+	args := []string{
+		"list-clients",
+		"-F",
+		"#{socket_path}",
+	}
+	serverInfo, _, err := Cmd(args)
+	if err != nil {
+		return &Server{}, errors.New("Problem fetching server")
+	}
+
+	socketPath := strings.TrimSpace(serverInfo)
+	return &Server{
+		SocketName: filepath.Base(socketPath),
+		SocketPath: socketPath,
+	}, nil
+}
+
 // Starts a new tmux server with a single session
 // using either socket name or socket path
 func (server *Server) Start() (string, string, error) {

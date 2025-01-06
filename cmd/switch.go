@@ -16,7 +16,6 @@ import (
 
 func init() {
 	rootCmd.AddCommand(switchCmd)
-	// TODO:: add socket name and path flags?
 }
 
 var switchCmd = &cobra.Command{

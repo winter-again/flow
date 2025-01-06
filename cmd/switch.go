@@ -95,7 +95,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	// HACK: instead of relying on fd, cmd `flow find` does equivalent
 	// then call fzf-tmux with ref to ths cmd to populate
 	// the secondary window
-	findCmd := "./bin/flow find"
+	findCmd := "flow find"
 
 	args := []string{
 		"--layout",

@@ -17,7 +17,7 @@ import (
 
 const tmuxFormatSep string = ";"
 
-// Checks if $TMUX environment var is set, meaning running inside tmux
+// InsideTmux checks if $TMUX environment var is set, meaning running inside tmux
 func InsideTmux() bool {
 	if os.Getenv("TMUX") == "" {
 		return false
@@ -30,8 +30,7 @@ type Server struct {
 	SocketPath string // socket path
 }
 
-// Creates Server spec based on socket name or path or just the default.
-// This guarantees that both socket name and path are set
+// NewServer creates Server spec based on socket name or path or just the default.
 func NewServer(socketName string, socketPath string) *Server {
 	defaultSocketName := "default"
 	socketDir := getSocketDir()
@@ -60,7 +59,7 @@ func NewServer(socketName string, socketPath string) *Server {
 	}
 }
 
-// Gets the server for the current session
+// GetCurrentServer retrieves the server for the current session
 func GetCurrentServer() (*Server, error) {
 	args := []string{
 		"list-clients",
@@ -79,8 +78,8 @@ func GetCurrentServer() (*Server, error) {
 	}, nil
 }
 
-// Starts a new tmux server with a single session
-// using either socket name or socket path
+// Start starts a new tmux server with a single session using either the
+// socket name or the socket path
 func (server *Server) Start() (string, string, error) {
 	if InsideTmux() {
 		return "", "", errors.New("Shouldn't nest tmux sessions")
@@ -124,7 +123,7 @@ func (server *Server) Start() (string, string, error) {
 	return stdout, stderr, nil
 }
 
-// Attaches to session in the given server.
+// Attach attaches to session in the given server.
 // If no target session is given, tmux will pref most recently used unattached session
 func (server *Server) Attach(sessionName string) (string, string, error) {
 	if InsideTmux() {
@@ -153,7 +152,7 @@ func (server *Server) Attach(sessionName string) (string, string, error) {
 	return stdout, stderr, nil
 }
 
-// Returns default tmux socket name and path
+// GetDefaultSocket returns default tmux socket name and path
 func GetDefaultSocket() (string, string) {
 	defaultSocketName := "default"
 	sockDir := getSocketDir()
@@ -161,7 +160,7 @@ func GetDefaultSocket() (string, string) {
 	return defaultSocketName, fmt.Sprintf("%s/tmux-%s/%s", sockDir, UID, defaultSocketName)
 }
 
-// Gets the tmux server socket directory, first checking
+// getSocketDir retrieves the tmux server socket directory, first checking
 // if TMUX_TMPDIR environment var set. Otherwise, returns the
 // default socket directory
 func getSocketDir() string {
@@ -171,7 +170,7 @@ func getSocketDir() string {
 	return "/tmp"
 }
 
-// Gets the current UID
+// getUID retrieves the current UID
 func getUID() string {
 	currUser, err := user.Current()
 	if err != nil {
@@ -187,7 +186,7 @@ type Session struct {
 	Windows int    // number of windows in session
 }
 
-// Gets tmux session by name
+// GetSession retrieves a tmux session by name
 func (server *Server) GetSession(sessionName string) (*Session, error) {
 	if !server.SessionExists(sessionName) {
 		return &Session{}, fmt.Errorf("Session %s doesn't exist", sessionName)
@@ -206,7 +205,7 @@ func (server *Server) GetSession(sessionName string) (*Session, error) {
 	return &Session{}, fmt.Errorf("Session %s doesn't exist", sessionName)
 }
 
-// Gets all tmux sessions
+// GetSessions retrieves all tmux sessions
 func (server *Server) GetSessions() ([]*Session, error) {
 	format := []string{
 		"#{session_id}",
@@ -233,7 +232,7 @@ func (server *Server) GetSessions() ([]*Session, error) {
 	return parsedSessions, nil
 }
 
-// Parses returned tmux session data into Session struct
+// parseSessions parses returned tmux session data into Session struct
 func parseSessions(sessionsOutput string) ([]*Session, error) {
 	sessions := strings.Split(strings.TrimSpace(sessionsOutput), "\n")
 
@@ -255,7 +254,7 @@ func parseSessions(sessionsOutput string) ([]*Session, error) {
 	return sessionsParsed, nil
 }
 
-// Checks if session exists based on its name
+// SessionExists checks if session exists based on its name
 func (server *Server) SessionExists(sessionName string) bool {
 	if sessionName == "" {
 		return false
@@ -276,7 +275,7 @@ func (server *Server) SessionExists(sessionName string) bool {
 	return true
 }
 
-// Creates tmux session based on name and working directory
+// CreateSession creates a tmux session based on name and working directory
 func (server *Server) CreateSession(sessionName string, sessionPath string) (*Session, error) {
 	if sessionName == "" || strings.Contains(sessionName, ":") {
 		return &Session{}, fmt.Errorf("Session names can't be empty and can't contain colons: %s", sessionName)
@@ -308,7 +307,7 @@ func (server *Server) CreateSession(sessionName string, sessionPath string) (*Se
 	return session, nil
 }
 
-// Checks if a given session name is actually a valid path
+// IsValidPath checks if a given session name is actually a valid path
 func IsValidPath(session string) bool {
 	_, err := os.Stat(session)
 	if err != nil && errors.Is(err, os.ErrNotExist) {
@@ -317,7 +316,7 @@ func IsValidPath(session string) bool {
 	return true
 }
 
-// Runs tmux command with given args; returns stdout and stderr
+// Cmd runs a tmux command with given args; returns stdout and stderr
 func Cmd(args []string) (string, string, error) {
 	tmux, err := exec.LookPath("tmux")
 	if err != nil {

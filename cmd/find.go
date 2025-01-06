@@ -24,6 +24,8 @@ var findCmd = &cobra.Command{
 	Run:   find,
 }
 
+// find collects all top-level subdirectories of the provided target directories
+// and prints the sorted list to stdout; it's solely for use in fzf-tmux popup window
 func find(cmd *cobra.Command, args []string) {
 	findDirs := viper.GetStringSlice("find.dirs")
 

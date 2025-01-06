@@ -25,6 +25,7 @@ var attachCmd = &cobra.Command{
 	Run:   attachServer,
 }
 
+// attachServer attaches the current client to a given tmux session
 func attachServer(cmd *cobra.Command, args []string) {
 	socketName, _ := cmd.Flags().GetString("name")
 	socketPath, _ := cmd.Flags().GetString("path")

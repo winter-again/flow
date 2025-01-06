@@ -24,7 +24,7 @@ var startCmd = &cobra.Command{
 	Run:   startAttachServer,
 }
 
-// Starts tmux server and attaches to session
+// startAttachServer starts a tmux server and attaches to a default session
 func startAttachServer(cmd *cobra.Command, args []string) {
 	// TODO: if mutually exclusive, what does empty one return? ""?
 	socketName, _ := cmd.Flags().GetString("name")

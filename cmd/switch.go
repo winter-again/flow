@@ -26,9 +26,7 @@ var switchCmd = &cobra.Command{
 	Run:   switchSession,
 }
 
-// TODO: we want it to return nil (and thus exit code 0) if user cancels via esc or ctrl-c
-// this is probably why I opted for RunE over Run, but not sure if that's actually useful
-
+// switchSession switches the client to a chosen tmux session via an fzf-tmux popup
 func switchSession(cmd *cobra.Command, args []string) {
 	if !tmux.InsideTmux() {
 		log.Fatal("Not running inside tmux")
@@ -71,8 +69,7 @@ func switchSession(cmd *cobra.Command, args []string) {
 
 var errFzfTmux = errors.New("exited fzf-tmux")
 
-// Uses fzf-tmux to pick a session that either exists for switching
-// or should be created
+// selectSession handles the fzf-tmux window and session selection (and potentially creation)
 func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	fdDirs := viper.GetStringSlice("find.dirs")
 	fdDirsStr := strings.Join(fdDirs, " ")
@@ -90,6 +87,12 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	fzfTmuxPrevSize := viper.GetString("fzf-tmux.preview_size")
 	fzfTmuxPrevBorder := viper.GetString("fzf-tmux.preview_border")
 
+	fzfTmuxPrompt := "Sessions: "
+	useIcons := viper.GetBool("fzf-tmux.use_icons")
+	if useIcons {
+		fzfTmuxPrompt = " Sessions: "
+	}
+
 	// HACK: instead of relying on fd, cmd `flow find` does equivalent
 	// then call fzf-tmux with ref to ths cmd to populate
 	// the secondary window
@@ -100,10 +103,12 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"reverse",    // display from top; overrides user fzf config
 		"--no-multi", // disable multi-select
 		"-p",         // popup window size, req. tmux 3.2+
+		"--no-separator",
 		fmt.Sprintf("%s,%s", fzfTmuxWidth, fzfTmuxLength),
 		"--prompt",
-		" Sessions: ",
+		fzfTmuxPrompt,
 		"--header",
+		// NOTE: hard-coded options
 		"\033[1;34m<tab>\033[m: common dirs / \033[1;34m<shift-tab>\033[m: sessions / \033[1;34m<ctrl-k>\033[m: kill session",
 		"--preview",
 		"active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id",
@@ -111,7 +116,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		// fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})+change-preview-label(Files)", fdCmd, fzfTmuxPrevCmdStr),
 		fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})+change-preview-label(Files)", findCmd, fzfTmuxPrevCmdStr),
 		"--bind",
-		"shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt( Sessions)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)",
+		fmt.Sprintf("shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt(%s)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)", fzfTmuxPrompt),
 		"--bind",
 		"ctrl-k:execute(tmux kill-session -t {})+reload(tmux list-sessions -F '#{session_name}')",
 		"--preview-label",
@@ -120,7 +125,6 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		fmt.Sprintf("%s,%s,border-%s", fzfTmuxPrevPos, fzfTmuxPrevSize, fzfTmuxPrevBorder),
 		"--border",
 		fmt.Sprintf("%s", fzfTmuxBorder),
-		"--no-separator",
 		// if not specified
 		// "--color",
 		// "fg:#cacaca,bg:-1,hl:underline:#8a98ac",
@@ -182,7 +186,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	}, nil
 }
 
-// Switch client to the specified tmux session
+// switchSess switches client to the specified tmux session
 func switchSess(session *tmux.Session) error {
 	// NOTE: prepending "=" to session name enforces only exact matches
 	sessionName := "=" + session.Name

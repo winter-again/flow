@@ -51,7 +51,12 @@ func initConfig() {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		viper.AddConfigPath("$HOME/.config/flow")
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+		viper.AddConfigPath(fmt.Sprintf("%s/.config/flow", home))
 		viper.SetConfigName("config")
 		viper.SetConfigType("toml")
 	}

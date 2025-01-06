@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -34,16 +33,14 @@ type Server struct {
 // Creates Server spec based on socket name or path or just the default.
 // This guarantees that both socket name and path are set
 func NewServer(socketName string, socketPath string) *Server {
-	// todo: when called from startSever(), only one of socketName or
-	// socketPath will be provided
 	defaultSocketName := "default"
-	sockDir := getSocketDir()
+	socketDir := getSocketDir()
 	UID := getUID()
-	defaultSocketPath := fmt.Sprintf("%s/tmux-%s/%s", sockDir, UID, defaultSocketName)
+	defaultSocketPath := fmt.Sprintf("%s/tmux-%s/%s", socketDir, UID, defaultSocketName)
 
-	// note: if socket path is not the default, then socket name should be ignored
+	// NOTE: if socket path is not the default, then socket name should be ignored
 	// b/c socket path already specifies the name; this matches tmux behavior
-	// otherwise, if socket name is given, then the socket path must use that name
+	// Otherwise, if socket name is given, then the socket path must use that name
 	// but other parts of the path remain default
 	if socketPath != defaultSocketPath {
 		return &Server{
@@ -53,11 +50,9 @@ func NewServer(socketName string, socketPath string) *Server {
 	} else if socketName != defaultSocketName {
 		return &Server{
 			SocketName: socketName,
-			SocketPath: fmt.Sprintf("%s/tmux-%s/%s", sockDir, UID, socketName),
+			SocketPath: fmt.Sprintf("%s/tmux-%s/%s", socketDir, UID, socketName),
 		}
 	} else {
-		// todo: think about this case; how does it get reached? caller would have
-		// to explicitly specify default values for the args
 		return &Server{
 			SocketName: defaultSocketName,
 			SocketPath: defaultSocketPath,
@@ -65,7 +60,7 @@ func NewServer(socketName string, socketPath string) *Server {
 	}
 }
 
-// Retrieves the server for the current session
+// Gets the server for the current session
 func GetCurrentServer() (*Server, error) {
 	args := []string{
 		"list-clients",
@@ -88,25 +83,20 @@ func GetCurrentServer() (*Server, error) {
 // using either socket name or socket path
 func (server *Server) Start() (string, string, error) {
 	if InsideTmux() {
-		// todo: case of creating a diff server?
-		log.Fatal("Shouldn't nest tmux sessions")
+		return "", "", errors.New("Shouldn't nest tmux sessions")
+	}
+
+	// NOTE: assumes that server is running if the socket exists,
+	// though it's possible to just delete the socket while server runs
+	if _, err := os.Stat(server.SocketPath); err == nil {
+		return "", "", errors.New("Server already exists")
 	}
 
 	_, defaultSocketPath := GetDefaultSocket()
 
-	log.Printf("default socket path: %s\n", defaultSocketPath)
-	log.Printf("given socket path: %s\n", server.SocketPath)
-
-	// todo: should this check if this specific server already exists and not create session
-	// since we're really relying on `new-session` to do the server creation?
-	// use `tmux info`? abuse `tmux run-shell`?
-
-	// todo: consider need for -d (detached)
-	// -d: new session is attached to the current terminal *unless* -d is given
-	// I think this means immediate attachment of client to session instead of just
-	// creating the server+session in the background
 	var args []string
-	// note: this creates server with single default session
+	// NOTE: creates server with single default session
+	// refrain from using `start-server` command
 	if server.SocketPath != defaultSocketPath {
 		args = []string{
 			"-S", // socket path
@@ -135,23 +125,27 @@ func (server *Server) Start() (string, string, error) {
 }
 
 // Attaches to session in the given server.
-// Should prefer the most recently used unattached session
-func (server *Server) Attach() (string, string, error) {
+// If no target session is given, tmux will pref most recently used unattached session
+func (server *Server) Attach(sessionName string) (string, string, error) {
 	if InsideTmux() {
-		log.Fatal("Shouldn't nest tmux sessions")
+		return "", "", errors.New("Shouldn't nest tmux sessions")
 	}
 
-	// todo: should allow specific target session?
-
-	// note: attach-session will try to create server, but this will fail
+	// NOTE: attach-session will try to create server, but this will fail
 	// if no sessions specified in the tmux config file
-	// note: not specifying target session will pref the most recently used
-	// unattached session
 	args := []string{
 		"-S",
 		server.SocketPath,
 		"attach-session",
 	}
+
+	if sessionName != "" {
+		if !server.SessionExists(sessionName) {
+			return "", "", errors.New("Session doesn't exist")
+		}
+		args = append(args, "-t", sessionName)
+	}
+
 	stdout, stderr, err := Cmd(args)
 	if err != nil {
 		return stdout, stderr, err
@@ -193,17 +187,12 @@ type Session struct {
 	Windows int    // number of windows in session
 }
 
-// todo: some/all of these should really be methods on server?
-// therefore servers always explicitly linked to a server
-// and covers cases where custom server spec used
-// I think session IDs and names are always unique to server (i.e., can't have dup IDs or names)
-
-// TODO: is there any redundancy with SessionExists()?
-// this also seems to be addressing when session doesn't exist
-
 // Gets tmux session by name
 func (server *Server) GetSession(sessionName string) (*Session, error) {
-	// TODO: can we guarantee that names are unique?
+	if !server.SessionExists(sessionName) {
+		return &Session{}, fmt.Errorf("Session %s doesn't exist", sessionName)
+	}
+
 	sessions, err := server.GetSessions()
 	if err != nil {
 		return &Session{}, err
@@ -214,50 +203,60 @@ func (server *Server) GetSession(sessionName string) (*Session, error) {
 			return session, nil
 		}
 	}
-	return &Session{}, fmt.Errorf("Session %q doesn't exist", sessionName)
+	return &Session{}, fmt.Errorf("Session %s doesn't exist", sessionName)
 }
 
 // Gets all tmux sessions
 func (server *Server) GetSessions() ([]*Session, error) {
+	format := []string{
+		"#{session_id}",
+		"#{session_name}",
+		"#{session_path}",
+		"#{session_windows}",
+	}
 	args := []string{
 		"-S",
 		server.SocketPath,
 		"list-sessions",
 		"-F",
-		"#{session_id};#{session_name};#{session_path};#{session_windows}",
+		strings.Join(format, tmuxFormatSep),
 	}
-	// todo: order is consistent?
 	sessions, _, err := Cmd(args)
 	if err != nil {
-		return []*Session{}, errors.New("Couldn't retrieve sessions")
+		return []*Session{}, fmt.Errorf("Couldn't retrieve sessions: %w", err)
 	}
-	return parseSessions(sessions), nil
+
+	parsedSessions, err := parseSessions(sessions)
+	if err != nil {
+		return []*Session{}, fmt.Errorf("Couldn't retrieve sessions: %w", err)
+	}
+	return parsedSessions, nil
 }
 
 // Parses returned tmux session data into Session struct
-func parseSessions(sessionsOutput string) []*Session {
-	// todo: do we need to consider any errors when splitting? shouldn't it always
-	// return at least one session?
+func parseSessions(sessionsOutput string) ([]*Session, error) {
 	sessions := strings.Split(strings.TrimSpace(sessionsOutput), "\n")
 
 	sessionsParsed := make([]*Session, len(sessions))
 	for i, s := range sessions {
-		// TODO: remove "$" from session ID?
 		fields := strings.Split(s, tmuxFormatSep)
+		nWins, err := strconv.Atoi(fields[3])
+		if err != nil {
+			return []*Session{}, errors.New("Error parsing number of windows per session")
+		}
 		session := &Session{
 			Id:      fields[0],
 			Name:    fields[1],
 			Path:    fields[2],
-			Windows: stringToInt(fields[3]),
+			Windows: nWins,
 		}
 		sessionsParsed[i] = session
 	}
-	return sessionsParsed
+	return sessionsParsed, nil
 }
 
 // Checks if session exists based on its name
 func (server *Server) SessionExists(sessionName string) bool {
-	// TODO: should we do this edge-case here?
 	if sessionName == "" {
 		return false
 	}
@@ -277,10 +276,14 @@ func (server *Server) SessionExists(sessionName string) bool {
 	return true
 }
 
-// todo: arg should be a Session/*Session?
+// Creates tmux session based on name and working directory
 func (server *Server) CreateSession(sessionName string, sessionPath string) (*Session, error) {
-	if sessionName == "" || strings.Contains(sessionName, ".") || strings.Contains(sessionName, ":") {
-		return &Session{}, fmt.Errorf("Session names can't be empty and can't contain colons or periods: %s", sessionName)
+	if sessionName == "" || strings.Contains(sessionName, ":") {
+		return &Session{}, fmt.Errorf("Session names can't be empty and can't contain colons: %s", sessionName)
+	}
+
+	if strings.Contains(sessionName, ".") {
+		sessionName = strings.ReplaceAll(sessionName, ".", "_")
 	}
 
 	args := []string{
@@ -298,7 +301,6 @@ func (server *Server) CreateSession(sessionName string, sessionPath string) (*Se
 		return &Session{}, err
 	}
 
-	// todo: retrieve instead of returning Session created here?
 	session, err := server.GetSession(sessionName)
 	if err != nil {
 		return &Session{}, err
@@ -306,22 +308,13 @@ func (server *Server) CreateSession(sessionName string, sessionPath string) (*Se
 	return session, nil
 }
 
-// todo: just get rid of this because it's redundant
-// TODO: could this ever fail or receive some bad value?
-func stringToInt(s string) int {
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		log.Fatal(err)
+// Checks if a given session name is actually a valid path
+func IsValidPath(session string) bool {
+	_, err := os.Stat(session)
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		return false
 	}
-	return i
-}
-
-func IsPath(session string) bool {
-	match, err := regexp.MatchString("^.*/(.*/)*$", session)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return match
+	return true
 }
 
 // Runs tmux command with given args; returns stdout and stderr
@@ -335,7 +328,7 @@ func Cmd(args []string) (string, string, error) {
 
 	var stdout, stderr bytes.Buffer
 	// NOTE: setting stdin makes it so that creating and attach to server works
-	// but does it make sense
+	// but does it make sense?
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

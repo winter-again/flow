@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -13,20 +14,19 @@ func init() {
 	defaultSocketName, defaultSocketPath := tmux.GetDefaultSocket()
 	startCmd.Flags().StringP("name", "n", defaultSocketName, "tmux server socket name")
 	startCmd.Flags().StringP("path", "p", defaultSocketPath, "tmux server socket path")
-	startCmd.MarkFlagsMutuallyExclusive("name", "path")
+	startCmd.MarkFlagsMutuallyExclusive("name", "path") // NOTE: only accept one of socket name or socket path
 }
 
-// NOTE: only accept one of socket name or socket path
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start tmux server",
-	Long:  `Start a new tmux server with either a given socket name or path. Attach to default session.`,
+	Long:  `Start a new tmux server with either a given socket name or path. Attach to its default session.`,
 	Run:   startAttachServer,
 }
 
 // Starts tmux server and attaches to session
 func startAttachServer(cmd *cobra.Command, args []string) {
-	// todo: if mutually exclusive, what does empty one return? ""?
+	// TODO: if mutually exclusive, what does empty one return? ""?
 	socketName, _ := cmd.Flags().GetString("name")
 	socketPath, _ := cmd.Flags().GetString("path")
 
@@ -34,17 +34,15 @@ func startAttachServer(cmd *cobra.Command, args []string) {
 	log.Printf("CLI socketPath: %s\n", socketPath)
 
 	server := tmux.NewServer(socketName, socketPath)
-	log.Printf("targeting server: %q\n", server)
+	log.Printf("targeting server: %+v\n", server)
 
 	_, _, err := server.Start()
 	if err != nil {
-		log.Printf("Problem creating server & session -> %s : %s\n", server.SocketName, server.SocketPath)
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("Error while starting server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err))
 	}
 
-	_, _, err = server.Attach()
+	_, _, err = server.Attach("")
 	if err != nil {
-		log.Printf("Problem attaching to server %s : %s\n", server.SocketName, server.SocketPath)
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("Error while attaching to server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err))
 	}
 }

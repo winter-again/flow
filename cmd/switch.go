@@ -102,7 +102,6 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"reverse",    // display from top; overrides user fzf config
 		"--no-multi", // disable multi-select
 		"-p",         // popup window size, req. tmux 3.2+
-		"--no-separator",
 		fmt.Sprintf("%s,%s", fzfTmuxWidth, fzfTmuxLength),
 		"--prompt",
 		fzfTmuxPrompt,
@@ -113,7 +112,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id",
 		"--bind",
 		// fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})+change-preview-label(Files)", fdCmd, fzfTmuxPrevCmdStr),
-		fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})+change-preview-label(Files)", findCmd, fzfTmuxPrevCmdStr),
+		fmt.Sprintf("tab:reload(%s)+change-prompt(Common dirs: )+change-preview(%s {})+change-preview-label(Files)", findCmd, fzfTmuxPrevCmdStr),
 		"--bind",
 		fmt.Sprintf("shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt(%s)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)", fzfTmuxPrompt),
 		"--bind",
@@ -123,7 +122,8 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"--preview-window",
 		fmt.Sprintf("%s,%s,border-%s", fzfTmuxPrevPos, fzfTmuxPrevSize, fzfTmuxPrevBorder),
 		"--border",
-		fmt.Sprintf("%s", fzfTmuxBorder),
+		fzfTmuxBorder,
+		"--no-separator",
 		// if not specified
 		// "--color",
 		// "fg:#cacaca,bg:-1,hl:underline:#8a98ac",
@@ -168,8 +168,10 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 			if exitError.ExitCode() == 130 {
 				return &tmux.Session{}, errFzfTmux
 			}
+			log.Println("error isn't 130")
 			return &tmux.Session{}, fmt.Errorf("error running fzf-tmux command: %w", err)
 		}
+		log.Println("not ExitError")
 		return &tmux.Session{}, fmt.Errorf("error running fzf-tmux command: %w", err)
 	}
 

@@ -86,12 +86,6 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	fzfTmuxPrevSize := viper.GetString("fzf-tmux.preview_size")
 	fzfTmuxPrevBorder := viper.GetString("fzf-tmux.preview_border")
 
-	fzfTmuxPrompt := "Sessions: "
-	useIcons := viper.GetBool("fzf-tmux.use_icons")
-	if useIcons {
-		fzfTmuxPrompt = " Sessions: "
-	}
-
 	// HACK: instead of relying on fd, cmd `flow find` does equivalent
 	// then call fzf-tmux with ref to ths cmd to populate
 	// the secondary window
@@ -104,7 +98,8 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"-p",         // popup window size, req. tmux 3.2+
 		fmt.Sprintf("%s,%s", fzfTmuxWidth, fzfTmuxLength),
 		"--prompt",
-		fzfTmuxPrompt,
+		// fzfTmuxPrompt,
+		"Sessions",
 		"--header",
 		// NOTE: hard-coded options
 		"\033[1;34m<tab>\033[m: common dirs / \033[1;34m<shift-tab>\033[m: sessions / \033[1;34m<ctrl-k>\033[m: kill session",
@@ -114,7 +109,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		// fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})+change-preview-label(Files)", fdCmd, fzfTmuxPrevCmdStr),
 		fmt.Sprintf("tab:reload(%s)+change-prompt(Common dirs: )+change-preview(%s {})+change-preview-label(Files)", findCmd, fzfTmuxPrevCmdStr),
 		"--bind",
-		fmt.Sprintf("shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt(%s)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)", fzfTmuxPrompt),
+		"shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt(Sessions)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)",
 		"--bind",
 		"ctrl-k:execute(tmux kill-session -t {})+reload(tmux list-sessions -F '#{session_name}')",
 		"--preview-label",

@@ -40,7 +40,6 @@ func init() {
 	viper.SetDefault("fzf-tmux.border", "rounded")
 	viper.SetDefault("fzf-tmux.preview_size", "60%")
 	viper.SetDefault("fzf-tmux.preview_border", "rounded")
-	viper.SetDefault("fzf-tmux.use_icons", false)
 	viper.SetDefault("fzf-tmux.preview_dir_cmd", []string{"ls"})
 	viper.SetDefault("fzf-tmux.preview_pos", "right")
 

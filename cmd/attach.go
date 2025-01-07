@@ -39,6 +39,6 @@ func attachServer(cmd *cobra.Command, args []string) {
 
 	_, _, err := server.Attach(target)
 	if err != nil {
-		log.Fatal(fmt.Errorf("Error while attaching to server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err))
+		log.Fatal(fmt.Errorf("error while attaching to server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err))
 	}
 }

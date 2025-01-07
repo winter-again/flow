@@ -162,10 +162,8 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 			if exitError.ExitCode() == 130 {
 				return &tmux.Session{}, errFzfTmux
 			}
-			log.Println("error isn't 130")
 			return &tmux.Session{}, fmt.Errorf("error running fzf-tmux command: %w", err)
 		}
-		log.Println("not ExitError")
 		return &tmux.Session{}, fmt.Errorf("error running fzf-tmux command: %w", err)
 	}
 
@@ -192,7 +190,7 @@ func switchSess(session *tmux.Session) error {
 	}
 	_, _, err := tmux.Cmd(args)
 	if err != nil {
-		return fmt.Errorf("Error switching tmux sessions: %w", err)
+		return fmt.Errorf("error switching tmux sessions: %w", err)
 	}
 	return nil
 }

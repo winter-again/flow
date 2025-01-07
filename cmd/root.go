@@ -70,7 +70,7 @@ func initConfig() {
 			fmt.Printf("Config file not found at %s", fmt.Sprintf("%s/.config/flow/config.toml", home))
 			os.Exit(1)
 		} else {
-			fmt.Printf("Error reading config file %s", err)
+			fmt.Printf("error reading config file %s", err)
 			os.Exit(1)
 		}
 	}

@@ -189,7 +189,7 @@ type Session struct {
 // GetSession retrieves a tmux session by name
 func (server *Server) GetSession(sessionName string) (*Session, error) {
 	if !server.SessionExists(sessionName) {
-		return &Session{}, fmt.Errorf("Session %s doesn't exist", sessionName)
+		return &Session{}, fmt.Errorf("session %s doesn't exist", sessionName)
 	}
 
 	sessions, err := server.GetSessions()
@@ -202,7 +202,7 @@ func (server *Server) GetSession(sessionName string) (*Session, error) {
 			return session, nil
 		}
 	}
-	return &Session{}, fmt.Errorf("Session %s doesn't exist", sessionName)
+	return &Session{}, fmt.Errorf("session %s doesn't exist", sessionName)
 }
 
 // GetSessions retrieves all tmux sessions
@@ -222,12 +222,12 @@ func (server *Server) GetSessions() ([]*Session, error) {
 	}
 	sessions, _, err := Cmd(args)
 	if err != nil {
-		return []*Session{}, fmt.Errorf("Couldn't retrieve sessions: %w", err)
+		return []*Session{}, fmt.Errorf("couldn't retrieve sessions: %w", err)
 	}
 
 	parsedSessions, err := parseSessions(sessions)
 	if err != nil {
-		return []*Session{}, fmt.Errorf("Couldn't retrieve sessions: %w", err)
+		return []*Session{}, fmt.Errorf("couldn't retrieve sessions: %w", err)
 	}
 	return parsedSessions, nil
 }
@@ -241,7 +241,7 @@ func parseSessions(sessionsOutput string) ([]*Session, error) {
 		fields := strings.Split(s, tmuxFormatSep)
 		nWins, err := strconv.Atoi(fields[3])
 		if err != nil {
-			return []*Session{}, errors.New("Error parsing number of windows per session")
+			return []*Session{}, errors.New("error parsing number of windows per session")
 		}
 		session := &Session{
 			Id:      fields[0],
@@ -278,7 +278,7 @@ func (server *Server) SessionExists(sessionName string) bool {
 // CreateSession creates a tmux session based on name and working directory
 func (server *Server) CreateSession(sessionName string, sessionPath string) (*Session, error) {
 	if sessionName == "" || strings.Contains(sessionName, ":") {
-		return &Session{}, fmt.Errorf("Session names can't be empty and can't contain colons: %s", sessionName)
+		return &Session{}, fmt.Errorf("session names can't be empty and can't contain colons: %s", sessionName)
 	}
 
 	if strings.Contains(sessionName, ".") {

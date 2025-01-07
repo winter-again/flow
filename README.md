@@ -29,8 +29,8 @@ length = "60%" # default
 border = "rounded" # default
 
 preview_pos = "right" # default
-preview_dir_cmd = ["eza", "-lah", "--icons", "--color", "always", "--group-directories-first"] # default: ls
+preview_dir_cmd = ["eza", "-lah", "--icons", "--color", "always", "--group-directories-first"] # default: ["ls"]
 
 [find]
-dirs = ["~/Documents/code", "~/Documents/Bansal-lab", "~/Documents/code/nvim-dev"] # default is []
+dirs = ["~/Documents/code"] # default is []
 ```

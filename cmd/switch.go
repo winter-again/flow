@@ -98,7 +98,6 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"-p",         // popup window size, req. tmux 3.2+
 		fmt.Sprintf("%s,%s", fzfTmuxWidth, fzfTmuxLength),
 		"--prompt",
-		// fzfTmuxPrompt,
 		"Sessions",
 		"--header",
 		// NOTE: hard-coded options

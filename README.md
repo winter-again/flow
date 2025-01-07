@@ -24,7 +24,6 @@ Config file looks like this:
 init_session_name = "0" # default
 
 [fzf-tmux]
-use_icons = false # default; uses Nerd Font icons
 width = "80%" # default
 length = "60%" # default
 border = "rounded" # default

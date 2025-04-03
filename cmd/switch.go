@@ -98,7 +98,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"-p",         // popup window size, req. tmux 3.2+
 		fmt.Sprintf("%s,%s", fzfTmuxWidth, fzfTmuxLength),
 		"--prompt",
-		"Sessions",
+		"Sessions: ",
 		"--header",
 		// NOTE: hard-coded options
 		"\033[1;34m<tab>\033[m: common dirs / \033[1;34m<shift-tab>\033[m: sessions / \033[1;34m<ctrl-k>\033[m: kill session",

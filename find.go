@@ -18,7 +18,7 @@ func Find() *cli.Command {
 		Name:  "find",
 		Usage: "List candidate directories for roots of new tmux sessions",
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			findDirs := K.Strings("find.dirs")
+			findDirs := k.Strings("find.dirs")
 
 			// TODO: should there be more validation of find.dirs data?
 			// e.g., ignore duplicates, handle empty slice?

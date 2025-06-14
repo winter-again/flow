@@ -66,18 +66,18 @@ var errFzfTmux = errors.New("exited fzf-tmux")
 
 // selectSession handles the fzf-tmux window and session selection (and potentially creation)
 func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
-	fdDirs := strings.Join(K.Strings("find.dirs"), " ")
-	fdArgs := strings.Join(K.Strings("find.args"), " ")
+	fdDirs := strings.Join(k.Strings("find.dirs"), " ")
+	fdArgs := strings.Join(k.Strings("find.args"), " ")
 	_ = fmt.Sprintf("fd . %s %s --type d", fdDirs, fdArgs)
 
 	// TODO: how do these interact with user's tmux settings? inherit?
-	fzfTmuxWidth := K.String("fzf-tmux.width")
-	fzfTmuxLength := K.String("fzf-tmux.length")
-	fzfTmuxBorder := K.String("fzf-tmux.border")
-	fzfTmuxPrevCmd := strings.Join(K.Strings("fzf-tmux.preview_dir_cmd"), " ")
-	fzfTmuxPrevPos := K.String("fzf-tmux.preview_pos")
-	fzfTmuxPrevSize := K.String("fzf-tmux.preview_size")
-	fzfTmuxPrevBorder := K.String("fzf-tmux.preview_border")
+	fzfTmuxWidth := k.String("fzf-tmux.width")
+	fzfTmuxLength := k.String("fzf-tmux.length")
+	fzfTmuxBorder := k.String("fzf-tmux.border")
+	fzfTmuxPrevCmd := strings.Join(k.Strings("fzf-tmux.preview_dir_cmd"), " ")
+	fzfTmuxPrevPos := k.String("fzf-tmux.preview_pos")
+	fzfTmuxPrevSize := k.String("fzf-tmux.preview_size")
+	fzfTmuxPrevBorder := k.String("fzf-tmux.preview_border")
 
 	// HACK: instead of relying on fd, flow defines its own command that it calls
 	// then populates fzf-tmux window with results

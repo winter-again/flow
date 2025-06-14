@@ -23,7 +23,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tmux.K = k
+	// NOTE: is this any better than rereading the config file?
+	tmux.InitSessionName = k.String("flow.init_session_name")
 
 	cmd := &cli.Command{
 		Name:  "flow",

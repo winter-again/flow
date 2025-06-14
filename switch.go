@@ -1,6 +1,7 @@
-package cmd
+package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,60 +10,55 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/urfave/cli/v3"
 	"github.com/winter-again/flow/internal/tmux"
 )
 
-func init() {
-	rootCmd.AddCommand(switchCmd)
-}
+func Switch() *cli.Command {
+	return &cli.Command{
+		Name:  "switch",
+		Usage: "Switch tmux sessions using a popup",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			if !tmux.InsideTmux() {
+				log.Fatal("Not running inside tmux")
+			}
 
-var switchCmd = &cobra.Command{
-	Use:   "switch",
-	Short: "Switch tmux sessions using a popup",
-	Long:  `Pick an existing tmux session to switch to or create a new one from a list of common directories`,
-	Run:   switchSession,
-}
+			server, err := tmux.GetCurrentServer()
+			if err != nil {
+				log.Fatal(err)
+			}
 
-// switchSession switches the client to a chosen tmux session via an fzf-tmux popup
-func switchSession(cmd *cobra.Command, args []string) {
-	if !tmux.InsideTmux() {
-		log.Fatal("Not running inside tmux")
-	}
+			sessions, err := server.GetSessions()
+			if err != nil {
+				log.Fatal(err)
+			}
 
-	server, err := tmux.GetCurrentServer()
-	if err != nil {
-		log.Fatal(err)
-	}
+			session, err := selectSession(sessions)
+			if err != nil {
+				// TODO: what was this?
+				if err == errFzfTmux {
+					return nil
+				}
+				log.Fatal(err)
+			}
 
-	sessions, err := server.GetSessions()
-	if err != nil {
-		log.Fatal(err)
-	}
+			if server.SessionExists(session.Name) {
+				if err := switchSess(session); err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				newSession, err := server.CreateSession(session.Name, session.Path)
+				if err != nil {
+					log.Fatal(err)
+				}
 
-	session, err := selectSession(sessions)
-	if err != nil {
-		if err == errFzfTmux {
-			return
-		}
-		log.Fatal(err)
-	}
-
-	if server.SessionExists(session.Name) {
-		if err := switchSess(session); err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		newSession, err := server.CreateSession(session.Name, session.Path)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = switchSess(newSession)
-		if err != nil {
-			log.Fatal(err)
-		}
+				err = switchSess(newSession)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			return nil
+		},
 	}
 }
 
@@ -70,25 +66,21 @@ var errFzfTmux = errors.New("exited fzf-tmux")
 
 // selectSession handles the fzf-tmux window and session selection (and potentially creation)
 func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
-	fdDirs := viper.GetStringSlice("find.dirs")
-	fdDirsStr := strings.Join(fdDirs, " ")
-	fdArgs := viper.GetStringSlice("find.args")
-	fdArgsStr := strings.Join(fdArgs, " ")
-	_ = fmt.Sprintf("fd . %s %s --type d", fdDirsStr, fdArgsStr)
+	fdDirs := strings.Join(k.Strings("find.dirs"), " ")
+	fdArgs := strings.Join(k.Strings("find.args"), " ")
+	_ = fmt.Sprintf("fd . %s %s --type d", fdDirs, fdArgs)
 
-	// TODO: how do these interact with user's settings? inherit?
-	fzfTmuxWidth := viper.GetString("fzf-tmux.width")
-	fzfTmuxLength := viper.GetString("fzf-tmux.length")
-	fzfTmuxBorder := viper.GetString("fzf-tmux.border")
-	fzfTmuxPrevCmd := viper.GetStringSlice("fzf-tmux.preview_dir_cmd")
-	fzfTmuxPrevCmdStr := strings.Join(fzfTmuxPrevCmd, " ")
-	fzfTmuxPrevPos := viper.GetString("fzf-tmux.preview_pos")
-	fzfTmuxPrevSize := viper.GetString("fzf-tmux.preview_size")
-	fzfTmuxPrevBorder := viper.GetString("fzf-tmux.preview_border")
+	// TODO: how do these interact with user's tmux settings? inherit?
+	fzfTmuxWidth := k.String("fzf-tmux.width")
+	fzfTmuxLength := k.String("fzf-tmux.length")
+	fzfTmuxBorder := k.String("fzf-tmux.border")
+	fzfTmuxPrevCmd := strings.Join(k.Strings("fzf-tmux.preview_dir_cmd"), " ")
+	fzfTmuxPrevPos := k.String("fzf-tmux.preview_pos")
+	fzfTmuxPrevSize := k.String("fzf-tmux.preview_size")
+	fzfTmuxPrevBorder := k.String("fzf-tmux.preview_border")
 
-	// HACK: instead of relying on fd, cmd `flow find` does equivalent
-	// then call fzf-tmux with ref to ths cmd to populate
-	// the secondary window
+	// HACK: instead of relying on fd, flow defines its own command that it calls
+	// then populates fzf-tmux window with results
 	findCmd := "flow find"
 
 	args := []string{
@@ -106,7 +98,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id",
 		"--bind",
 		// fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})+change-preview-label(Files)", fdCmd, fzfTmuxPrevCmdStr),
-		fmt.Sprintf("tab:reload(%s)+change-prompt(Common dirs: )+change-preview(%s {})+change-preview-label(Files)", findCmd, fzfTmuxPrevCmdStr),
+		fmt.Sprintf("tab:reload(%s)+change-prompt(Common dirs: )+change-preview(%s {})+change-preview-label(Files)", findCmd, fzfTmuxPrevCmd),
 		"--bind",
 		"shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt(Sessions)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)",
 		"--bind",

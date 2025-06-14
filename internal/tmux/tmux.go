@@ -12,10 +12,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 )
 
 const tmuxFormatSep string = ";"
+
+// NOTE: is this any better than rereading the config file?
+var K *koanf.Koanf
 
 // InsideTmux checks if $TMUX environment var is set, meaning running inside tmux
 func InsideTmux() bool {
@@ -103,7 +106,7 @@ func (server *Server) Start() (string, string, error) {
 			"new-session",
 			"-d", // detached
 			"-s", // session name
-			viper.GetString("flow.init_session_name"),
+			K.String("flow.init_session_name"),
 		}
 	} else {
 		args = []string{
@@ -112,7 +115,7 @@ func (server *Server) Start() (string, string, error) {
 			"new-session",
 			"-d", // detached
 			"-s", // session name
-			viper.GetString("flow.init_session_name"),
+			K.String("flow.init_session_name"),
 		}
 	}
 

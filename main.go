@@ -12,37 +12,18 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"github.com/urfave/cli/v3"
+
+	"github.com/winter-again/flow/internal/tmux"
 )
 
 var k = koanf.New(".")
 
 func main() {
-	k.Load(confmap.Provider(map[string]any{
-		"flow.init_session_name":   "0",
-		"fzf-tmux.length":          "60%",
-		"fzf-tmux.width":           "80%",
-		"fzf-tmux.border":          "rounded",
-		"fzf-tmux.preview_size":    "60%",
-		"fzf-tmux.preview_border":  "rounded",
-		"fzf-tmux.preview_dir_cmd": []string{"ls"},
-		"fzf-tmux.preview_pos":     "right",
-		"find.dirs":                []string{"$HOME"},
-	}, "."), nil)
-
-	home, err := os.UserHomeDir()
-	if err != nil {
+	if err := loadConfig(); err != nil {
 		log.Fatal(err)
 	}
-	config := fmt.Sprintf("%s/.config/flow/config.toml", home)
 
-	if _, err := os.Stat(config); errors.Is(err, os.ErrNotExist) {
-		fmt.Printf("Config file not found at %s", fmt.Sprintf("%s/.config/flow/config.toml", home))
-		os.Exit(1)
-	}
-
-	if err := k.Load(file.Provider(config), toml.Parser()); err != nil {
-		log.Fatalf("error loading config: %v", err)
-	}
+	tmux.K = k
 
 	cmd := &cli.Command{
 		Name:  "flow",
@@ -58,4 +39,34 @@ func main() {
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func loadConfig() error {
+	k.Load(confmap.Provider(map[string]any{
+		"flow.init_session_name":   "0",
+		"fzf-tmux.length":          "60%",
+		"fzf-tmux.width":           "80%",
+		"fzf-tmux.border":          "rounded",
+		"fzf-tmux.preview_size":    "60%",
+		"fzf-tmux.preview_border":  "rounded",
+		"fzf-tmux.preview_dir_cmd": []string{"ls"},
+		"fzf-tmux.preview_pos":     "right",
+		"find.dirs":                []string{"$HOME"},
+	}, "."), nil)
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	config := fmt.Sprintf("%s/.config/flow/config.toml", home)
+
+	if _, err := os.Stat(config); errors.Is(err, os.ErrNotExist) {
+		fmt.Printf("Config file not found at %s", fmt.Sprintf("%s/.config/flow/config.toml", home))
+		os.Exit(1)
+	}
+
+	if err := k.Load(file.Provider(config), toml.Parser()); err != nil {
+		log.Fatalf("error loading config: %v", err)
+	}
+	return nil
 }

@@ -3,24 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/urfave/cli/v3"
 	"github.com/winter-again/flow/internal/tmux"
 )
 
 func Attach() *cli.Command {
-	var socketName string
-	var socketPath string
 	var target string
 
-	// TODO: should this be run here? what about in init()?
-	defaultSocketName, defaultSocketPath := tmux.GetDefaultSocket()
+	socketName, socketPath := tmux.GetDefaultSocket()
 
 	return &cli.Command{
 		Name:    "attach",
 		Aliases: []string{"a"},
-		Usage:   "Attach to existing tmux server",
+		Usage:   "Attach to existing tmux server and session",
 		MutuallyExclusiveFlags: []cli.MutuallyExclusiveFlags{
 			{
 				Flags: [][]cli.Flag{
@@ -28,7 +24,7 @@ func Attach() *cli.Command {
 						&cli.StringFlag{
 							Name:        "name",
 							Aliases:     []string{"n"},
-							Value:       defaultSocketName,
+							Value:       socketName,
 							Usage:       "tmux server socket name",
 							Destination: &socketName,
 						},
@@ -37,7 +33,7 @@ func Attach() *cli.Command {
 						&cli.StringFlag{
 							Name:        "path",
 							Aliases:     []string{"p"},
-							Value:       defaultSocketPath,
+							Value:       socketPath,
 							Usage:       "tmux server socket path",
 							Destination: &socketPath,
 						},
@@ -54,15 +50,11 @@ func Attach() *cli.Command {
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			// log.Printf("CLI socketName: %s\n", socketName)
-			// log.Printf("CLI socketPath: %s\n", socketPath)
-
 			server := tmux.NewServer(socketName, socketPath)
-			// log.Printf("targeting server: %q\n", server)
 
 			_, _, err := server.Attach(target)
 			if err != nil {
-				log.Fatal(fmt.Errorf("error while attaching to server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err))
+				cli.Exit(fmt.Errorf("error while attaching to server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err), 1)
 			}
 			return nil
 		},

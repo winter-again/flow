@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -23,17 +22,18 @@ func Switch() *cli.Command {
 		Usage: "Switch tmux sessions using a popup",
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			if !tmux.InsideTmux() {
-				log.Fatal("Not running inside tmux")
+				return cli.Exit(errors.New("not running inside tmux"), 1)
 			}
 
+			// TODO: should cli.Exit() or handle these instead?
 			server, err := tmux.GetCurrentServer()
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			sessions, err := server.GetSessions()
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			session, err := selectSession(sessions)
@@ -42,22 +42,22 @@ func Switch() *cli.Command {
 				if err == errFzfTmux {
 					return nil
 				}
-				log.Fatal(err)
+				return err
 			}
 
 			if server.SessionExists(session.Name) {
 				if err := switchSess(session); err != nil {
-					log.Fatal(err)
+					return err
 				}
 			} else {
 				newSession, err := server.CreateSession(session.Name, session.Path)
 				if err != nil {
-					log.Fatal(err)
+					return err
 				}
 
 				err = switchSess(newSession)
 				if err != nil {
-					log.Fatal(err)
+					return err
 				}
 			}
 			return nil

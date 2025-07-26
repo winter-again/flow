@@ -3,26 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/urfave/cli/v3"
 	"github.com/winter-again/flow/internal/tmux"
 )
 
 func Start() *cli.Command {
-	var socketName string
-	var socketPath string
-
-	// TODO: should this be run here? what about in init()?
-	defaultSocketName, defaultSocketPath := tmux.GetDefaultSocket()
+	socketName, socketPath := tmux.GetDefaultSocket()
 
 	return &cli.Command{
 		Name:    "start",
 		Aliases: []string{"s"},
-		Usage:   "Start tmux server for flow",
+		Usage:   "Start and attach to new tmux server for flow to manage",
 		// TODO: this seems to check exclusivity, but is the behavior correct? It prints the
 		// help and a warning under
-		// it could be a bug closed by this PR: https://github.com/urfave/cli/issues/2146
+		// It could be a bug closed by this PR: https://github.com/urfave/cli/issues/2146
 		MutuallyExclusiveFlags: []cli.MutuallyExclusiveFlags{
 			{
 				Flags: [][]cli.Flag{
@@ -30,7 +25,7 @@ func Start() *cli.Command {
 						&cli.StringFlag{
 							Name:        "name",
 							Aliases:     []string{"n"},
-							Value:       defaultSocketName,
+							Value:       socketName,
 							Usage:       "tmux server socket name",
 							Destination: &socketName,
 						},
@@ -39,7 +34,7 @@ func Start() *cli.Command {
 						&cli.StringFlag{
 							Name:        "path",
 							Aliases:     []string{"p"},
-							Value:       defaultSocketPath,
+							Value:       socketPath,
 							Usage:       "tmux server socket path",
 							Destination: &socketPath,
 						},
@@ -49,15 +44,14 @@ func Start() *cli.Command {
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			server := tmux.NewServer(socketName, socketPath)
-			log.Printf("targeting server: %+v\n", server)
 
 			_, _, err := server.Start()
 			if err != nil {
-				log.Fatal(fmt.Errorf("error while starting server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err))
+				return cli.Exit(fmt.Errorf("error while starting server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err), 1)
 			}
 			_, _, err = server.Attach("")
 			if err != nil {
-				log.Fatal(fmt.Errorf("error while attaching to server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err))
+				return cli.Exit(fmt.Errorf("error while attaching to server with socket name '%s' and socket path '%s': %w", server.SocketName, server.SocketPath, err), 1)
 			}
 			return nil
 		},

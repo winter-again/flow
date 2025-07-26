@@ -15,6 +15,7 @@ import (
 
 const tmuxFormatSep string = ";"
 
+// TODO: should define a sentinel tmux error to return from this?
 var InitSessionName string
 
 // InsideTmux checks if $TMUX environment var is set, meaning running inside tmux
@@ -32,10 +33,9 @@ type Server struct {
 
 // NewServer creates Server spec based on socket name or path or just the default.
 func NewServer(socketName string, socketPath string) *Server {
-	defaultSocketName := "default"
 	socketDir := getSocketDir()
 	UID := getUID()
-	defaultSocketPath := fmt.Sprintf("%s/tmux-%s/%s", socketDir, UID, defaultSocketName)
+	defaultSocketName, defaultSocketPath := GetDefaultSocket()
 
 	// NOTE: if socket path is not the default, then socket name should be ignored
 	// b/c socket path already specifies the name; this matches tmux behavior
@@ -155,17 +155,17 @@ func (server *Server) Attach(sessionName string) (string, string, error) {
 // GetDefaultSocket returns default tmux socket name and path
 func GetDefaultSocket() (string, string) {
 	defaultSocketName := "default"
-	sockDir := getSocketDir()
+	socketDir := getSocketDir()
 	UID := getUID()
-	return defaultSocketName, fmt.Sprintf("%s/tmux-%s/%s", sockDir, UID, defaultSocketName)
+	return defaultSocketName, fmt.Sprintf("%s/tmux-%s/%s", socketDir, UID, defaultSocketName)
 }
 
 // getSocketDir retrieves the tmux server socket directory, first checking
 // if TMUX_TMPDIR environment var set. Otherwise, returns the
 // default socket directory
 func getSocketDir() string {
-	if sockDir := os.Getenv("TMUX_TMPDIR"); sockDir != "" {
-		return sockDir
+	if socketDir := os.Getenv("TMUX_TMPDIR"); socketDir != "" {
+		return socketDir
 	}
 	return "/tmp"
 }

@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/confmap"
@@ -19,11 +18,13 @@ import (
 var k = koanf.New(".")
 
 func main() {
+	// TODO: create global --debug flag for logging?
 	if err := loadConfig(); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
-	// NOTE: is this any better than rereading the config file?
+	// NOTE: is this any better than rereading the config file in that package?
 	tmux.InitSessionName = k.String("flow.init_session_name")
 
 	cmd := &cli.Command{
@@ -35,15 +36,18 @@ func main() {
 			Attach(),
 			Switch(),
 			Find(),
+			// TODO: Kill() should also handle clean up of server/socket files
 		},
 	}
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1) // NOTE: this might be redundant?
 	}
 }
 
 func loadConfig() error {
+	// TODO: should allow user to config this from fzf-tmux instead?
 	k.Load(confmap.Provider(map[string]any{
 		"flow.init_session_name":   "0",
 		"fzf-tmux.length":          "60%",
@@ -53,22 +57,19 @@ func loadConfig() error {
 		"fzf-tmux.preview_border":  "rounded",
 		"fzf-tmux.preview_dir_cmd": []string{"ls"},
 		"fzf-tmux.preview_pos":     "right",
-		"find.dirs":                []string{"$HOME"},
+		// TODO: check if $HOME can be used
+		"find.dirs": []string{"$HOME"},
 	}, "."), nil)
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
-	config := fmt.Sprintf("%s/.config/flow/config.toml", home)
 
-	if _, err := os.Stat(config); errors.Is(err, os.ErrNotExist) {
-		fmt.Printf("Config file not found at %s", fmt.Sprintf("%s/.config/flow/config.toml", home))
-		os.Exit(1)
-	}
-
+	// TODO: what about --config flag for custom loc?
+	config := filepath.Join(home, ".config/flow/config.toml")
 	if err := k.Load(file.Provider(config), toml.Parser()); err != nil {
-		log.Fatalf("error loading config: %v", err)
+		return fmt.Errorf("error loading config file: %w", err)
 	}
 	return nil
 }

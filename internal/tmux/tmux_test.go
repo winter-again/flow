@@ -7,6 +7,7 @@ import (
 )
 
 func TestNewServer(t *testing.T) {
+	// TODO: prob use tmux.GetDefaultSocket() instead?
 	defaultSocketName := "default"
 	sockDir := getSocketDir()
 	UID := getUID()

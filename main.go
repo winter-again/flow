@@ -27,8 +27,9 @@ func main() {
 	tmux.InitSessionName = k.String("flow.init_session_name")
 
 	cmd := &cli.Command{
-		Name:  "flow",
-		Usage: "CLI for managing tmux sessions",
+		Name:    "flow",
+		Version: "v0.1.0",
+		Usage:   "CLI for managing tmux sessions",
 		Commands: []*cli.Command{
 			Start(),
 			Attach(),

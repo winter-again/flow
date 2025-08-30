@@ -159,7 +159,6 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 			Path: selection,
 		}, nil
 	}
-	log.Printf("Session choice: %s", selection)
 	return &tmux.Session{
 		Name: selection,
 	}, nil

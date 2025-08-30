@@ -6,7 +6,7 @@
 ## Installation
 
 ```sh
-go install github.com/winter-again/flow@main
+go install github.com/winter-again/flow@latest
 ```
 
 ## Configuration

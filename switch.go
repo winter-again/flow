@@ -69,7 +69,7 @@ var errFzfTmux = errors.New("exited fzf-tmux")
 func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	// HACK: instead of relying on fd, flow defines its own command that it calls
 	// then populates fzf-tmux window with results
-	findCmd := "./bin/flow find"
+	findCmd := "flow find"
 
 	// fdDirs := strings.Join(k.Strings("find.dirs"), " ")
 	// fdArgs := strings.Join(k.Strings("find.args"), " ")

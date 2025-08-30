@@ -8,6 +8,7 @@ import (
 	"log"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -66,9 +67,13 @@ var errFzfTmux = errors.New("exited fzf-tmux")
 
 // selectSession handles the fzf-tmux window and session selection (and potentially creation)
 func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
-	fdDirs := strings.Join(k.Strings("find.dirs"), " ")
-	fdArgs := strings.Join(k.Strings("find.args"), " ")
-	_ = fmt.Sprintf("fd . %s %s --type d", fdDirs, fdArgs)
+	// HACK: instead of relying on fd, flow defines its own command that it calls
+	// then populates fzf-tmux window with results
+	findCmd := "./bin/flow find"
+
+	// fdDirs := strings.Join(k.Strings("find.dirs"), " ")
+	// fdArgs := strings.Join(k.Strings("find.args"), " ")
+	// _ = fmt.Sprintf("fd . %s %s --type d", fdDirs, fdArgs)
 
 	// TODO: how do these interact with user's tmux settings? inherit?
 	fzfTmuxWidth := k.String("fzf-tmux.width")
@@ -79,9 +84,15 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 	fzfTmuxPrevSize := k.String("fzf-tmux.preview_size")
 	fzfTmuxPrevBorder := k.String("fzf-tmux.preview_border")
 
-	// HACK: instead of relying on fd, flow defines its own command that it calls
-	// then populates fzf-tmux window with results
-	findCmd := "flow find"
+	n := len(sessions)
+	sessionList := make([]string, n)
+	suffix := ": "
+	pad := len(strconv.Itoa(n)) + len(suffix)
+	for i, session := range sessions {
+		idx := fmt.Sprintf("%-*v", pad, strconv.Itoa(i)+suffix)
+		sessionList[i] = idx + session.Name
+	}
+	sessionStr := strings.Join(sessionList, "\n")
 
 	args := []string{
 		"--layout",
@@ -100,9 +111,9 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		// fmt.Sprintf("tab:reload(%s)+change-prompt( Common dirs: )+change-preview(%s {})+change-preview-label(Files)", fdCmd, fzfTmuxPrevCmdStr),
 		fmt.Sprintf("tab:reload(%s)+change-prompt(Common dirs: )+change-preview(%s {})+change-preview-label(Files)", findCmd, fzfTmuxPrevCmd),
 		"--bind",
-		"shift-tab:reload(tmux list-sessions -F '#{session_name}')+change-prompt(Sessions)+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)",
+		"shift-tab:reload(tmux list-sessions -F '#{line}: #{session_name}')+change-prompt(Sessions: )+change-preview(active_pane_id=$(tmux display-message -t {} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)",
 		"--bind",
-		"ctrl-k:execute(tmux kill-session -t {})+reload(tmux list-sessions -F '#{session_name}')",
+		"ctrl-k:execute(tmux kill-session -t {})+reload(tmux list-sessions -F '#{line}: #{session_name}')",
 		"--preview-label",
 		"Currently active pane",
 		"--preview-window",
@@ -110,26 +121,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"--border",
 		fzfTmuxBorder,
 		"--no-separator",
-		// if not specified
-		// "--color",
-		// "fg:#cacaca,bg:-1,hl:underline:#8a98ac",
-		// "--color",
-		// "fg+:#f0f0f0,bg+:#262626,hl+:underline:#8f8aac",
-		// "--color",
-		// "info:#c6a679,prompt:#8f8aac,pointer:#f0f0f0",
-		// "--color",
-		// "marker:#8aac8b,spinner:#8aac8b",
-		// "--color",
-		// "gutter:-1,border:#8a98ac,header:-1",
-		// "--color",
-		// "preview-fg:#f0f0f0,preview-bg:-1",
 	}
-
-	sessionList := make([]string, len(sessions))
-	for i, session := range sessions {
-		sessionList[i] = session.Name
-	}
-	sessionStr := strings.Join(sessionList, "\n")
 
 	fzfTmux, err := exec.LookPath("fzf-tmux") // NOTE: fzf-tmux is wrapper script from fzf
 	if err != nil {

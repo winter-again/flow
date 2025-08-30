@@ -54,7 +54,9 @@ func Find() *cli.Command {
 				}
 			}
 
+			// TODO: make optional?
 			slices.Sort(childDirs)
+
 			out := strings.Join(childDirs, "\n")
 			fmt.Println(out)
 			return nil

@@ -1,7 +1,7 @@
 bin_path := "./bin"
 bin_name := "flow"
 
-build:
+build: clean
     go build -o={{ bin_path }}/{{ bin_name }}
 
 run: build
@@ -23,4 +23,3 @@ tidy:
 
 vet:
     go vet
-

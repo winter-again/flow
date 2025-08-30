@@ -1,12 +1,12 @@
 # flow
 
-- A simple CLI for managing `tmux` sessions
+- Simple personal CLI for managing `tmux` sessions
 - Currently requires `tmux` and `fzf`
 
 ## Installation
 
 ```sh
-go install github.com/winter-again/flow@latest
+go install github.com/winter-again/flow@main
 ```
 
 ## Configuration
@@ -19,7 +19,7 @@ flow --config path/to/config/file
 
 Config file looks like this:
 
-```
+```toml
 [flow]
 init_session_name = "0" # default
 

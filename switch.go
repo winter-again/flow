@@ -15,6 +15,8 @@ import (
 	"github.com/winter-again/flow/internal/tmux"
 )
 
+const sessionSep = ": "
+
 func Switch() *cli.Command {
 	return &cli.Command{
 		Name:  "switch",
@@ -86,10 +88,9 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 
 	n := len(sessions)
 	sessionList := make([]string, n)
-	suffix := ": "
-	pad := len(strconv.Itoa(n)) + len(suffix)
+	pad := len(strconv.Itoa(n)) + len(sessionSep)
 	for i, session := range sessions {
-		idx := fmt.Sprintf("%-*v", pad, strconv.Itoa(i)+suffix)
+		idx := fmt.Sprintf("%-*v", pad, strconv.Itoa(i)+sessionSep)
 		sessionList[i] = idx + session.Name
 	}
 	sessionStr := strings.Join(sessionList, "\n")
@@ -151,13 +152,14 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		return &tmux.Session{}, fmt.Errorf("error running fzf-tmux command: %w", err)
 	}
 
-	selection := strings.TrimSpace(string(out))
+	selection := cleanSessionName(string(out))
 	if tmux.IsValidPath(selection) {
 		return &tmux.Session{
 			Name: filepath.Base(selection),
 			Path: selection,
 		}, nil
 	}
+	log.Printf("Session choice: %s", selection)
 	return &tmux.Session{
 		Name: selection,
 	}, nil
@@ -177,4 +179,8 @@ func switchSess(session *tmux.Session) error {
 		return fmt.Errorf("error switching tmux sessions: %w", err)
 	}
 	return nil
+}
+
+func cleanSessionName(sessionName string) string {
+	return strings.TrimSpace(strings.Split(sessionName, sessionSep)[1])
 }

@@ -181,5 +181,12 @@ func switchSess(session *tmux.Session) error {
 }
 
 func cleanSessionName(sessionName string) string {
-	return strings.TrimSpace(strings.Split(sessionName, sessionSep)[1])
+	s := strings.Split(sessionName, sessionSep)
+	var name string
+	if len(s) == 1 {
+		name = s[0]
+	} else {
+		name = s[1]
+	}
+	return strings.TrimSpace(name)
 }

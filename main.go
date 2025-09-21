@@ -29,14 +29,13 @@ func main() {
 
 	cmd := &cli.Command{
 		Name:    "flow",
-		Version: "v0.1.1",
+		Version: "v0.1.2",
 		Usage:   "CLI for managing tmux sessions",
 		Commands: []*cli.Command{
 			Start(),
 			Attach(),
 			Switch(),
 			Find(),
-			// TODO: Kill() should also handle clean up of server/socket files
 		},
 	}
 

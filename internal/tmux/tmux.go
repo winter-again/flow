@@ -68,7 +68,7 @@ func GetCurrentServer() (*Server, error) {
 	}
 	serverInfo, _, err := Cmd(args)
 	if err != nil {
-		return &Server{}, errors.New("Problem fetching server")
+		return &Server{}, errors.New("problem fetching server")
 	}
 
 	socketPath := strings.TrimSpace(serverInfo)
@@ -82,13 +82,13 @@ func GetCurrentServer() (*Server, error) {
 // socket name or the socket path
 func (server *Server) Start() (string, string, error) {
 	if InsideTmux() {
-		return "", "", errors.New("Shouldn't nest tmux sessions")
+		return "", "", errors.New("shouldn't nest tmux sessions")
 	}
 
 	// NOTE: assumes that server is running if the socket exists,
 	// though it's possible to just delete the socket while server runs
 	if _, err := os.Stat(server.SocketPath); err == nil {
-		return "", "", errors.New("Server already exists")
+		return "", "", errors.New("server already exists")
 	}
 
 	_, defaultSocketPath := GetDefaultSocket()
@@ -127,7 +127,7 @@ func (server *Server) Start() (string, string, error) {
 // If no target session is given, tmux will pref most recently used unattached session
 func (server *Server) Attach(sessionName string) (string, string, error) {
 	if InsideTmux() {
-		return "", "", errors.New("Shouldn't nest tmux sessions")
+		return "", "", errors.New("shouldn't nest tmux sessions")
 	}
 
 	// NOTE: attach-session will try to create server, but this will fail
@@ -140,7 +140,7 @@ func (server *Server) Attach(sessionName string) (string, string, error) {
 
 	if sessionName != "" {
 		if !server.SessionExists(sessionName) {
-			return "", "", errors.New("Session doesn't exist")
+			return "", "", errors.New("session doesn't exist")
 		}
 		args = append(args, "-t", sessionName)
 	}
@@ -320,7 +320,7 @@ func IsValidPath(session string) bool {
 func Cmd(args []string) (string, string, error) {
 	tmux, err := exec.LookPath("tmux")
 	if err != nil {
-		return "", "", errors.New("Couldn't find tmux in the PATH")
+		return "", "", errors.New("couldn't find tmux in the PATH")
 	}
 
 	cmd := exec.Command(tmux, args...)

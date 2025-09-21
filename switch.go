@@ -114,7 +114,7 @@ func selectSession(sessions []*tmux.Session) (*tmux.Session, error) {
 		"--bind",
 		fmt.Sprintf("shift-tab:reload(tmux list-sessions -F '#{line}: #{session_name}')+change-prompt(Sessions: )+change-preview(active_pane_id=$(tmux display-message -t {%d..} -p '#{pane_id}'); tmux capture-pane -ep -t $active_pane_id)+change-preview-label(Currently active pane)", 2),
 		"--bind",
-		"ctrl-k:execute(tmux kill-session -t {})+reload(tmux list-sessions -F '#{line}: #{session_name}')",
+		fmt.Sprintf("ctrl-k:execute(tmux kill-session -t {%d..})+reload(tmux list-sessions -F '#{line}: #{session_name}')", 2),
 		"--preview-label",
 		"Currently active pane",
 		"--preview-window",

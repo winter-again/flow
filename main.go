@@ -29,7 +29,7 @@ func main() {
 
 	cmd := &cli.Command{
 		Name:    "flow",
-		Version: "v0.1.2",
+		Version: "v0.1.3",
 		Usage:   "CLI for managing tmux sessions",
 		Commands: []*cli.Command{
 			Start(),

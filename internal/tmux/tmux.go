@@ -71,7 +71,10 @@ func GetCurrentServer() (*Server, error) {
 		return &Server{}, errors.New("problem fetching server")
 	}
 
-	socketPath := strings.TrimSpace(serverInfo)
+	// NOTE: assumes only 1 server running and takes first
+	sockets := strings.Split(serverInfo, "\n")
+	socketPath := strings.TrimSpace(sockets[0])
+
 	return &Server{
 		SocketName: filepath.Base(socketPath),
 		SocketPath: socketPath,
@@ -227,7 +230,7 @@ func (server *Server) GetSessions() ([]*Session, error) {
 
 	parsedSessions, err := parseSessions(sessions)
 	if err != nil {
-		return []*Session{}, fmt.Errorf("couldn't retrieve sessions: %w", err)
+		return []*Session{}, fmt.Errorf("couldn't parse session data: %w", err)
 	}
 	return parsedSessions, nil
 }
@@ -333,6 +336,6 @@ func Cmd(args []string) (string, string, error) {
 	cmd.Stderr = &stderr
 
 	err = cmd.Run()
-	outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
+	outStr, errStr := stdout.String(), stderr.String()
 	return outStr, errStr, err
 }
